@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Mixing Analyzer</title>
+    <link rel="stylesheet" href="index.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://esm.sh/@google/genai@^0.7.0",
+          "marked": "https://esm.sh/marked@^15.0.7",
+          "dompurify": "https://esm.sh/dompurify@^3.0.6"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-layout">
+        <header>
+            <div class="top-bar">
+                <div class="header-content">
+                    <h1>Mixing Analyzer</h1>
+                    <span class="subtitle">developed by stancsz</span>
+                    <p data-i18n-key="appDescription">An AI-powered mixing analyzer for audio engineers, producers, and music professionals.</p>
+                    <div class="bmc-container">
+                      <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="stancsz" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="language-selector" data-i18n-key="languageLabel">Language</label>
+                    <select id="language-selector">
+                        <option value="en" selected>English</option>
+                        <option value="zh">中文</option>
+                        <option value="ja">日本語</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <section class="input-panel">
+            <div class="upload-container">
+              <label for="file-upload" class="custom-file-upload">
+                <span data-i18n-key="uploadLabel">&#127925; Choose Track or Stems</span>
+              </label>
+              <input id="file-upload" type="file" accept="audio/wav,audio/flac,audio/mpeg,.flac" multiple/>
+              <span id="file-name" data-i18n-key="noFileSelected">No file(s) selected</span>
+            </div>
+
+            <fieldset class="analysis-options">
+                <legend data-i18n-key="analysisOptionsTitle">Analysis Options</legend>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-mixing" name="analysis-options" value="mixing" checked>
+                    <label for="option-mixing" data-i18n-key="optionMixing">Mixing & Mastering Feedback</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-harshness" name="analysis-options" value="harshness" checked>
+                    <label for="option-harshness" data-i18n-key="optionHarshness">Harshness & Resonance Analysis</label>
+                </div>
+                 <div class="checkbox-group">
+                    <input type="checkbox" id="option-effects" name="analysis-options" value="effects">
+                    <label for="option-effects" data-i18n-key="optionEffects">Reverb & Delay Analysis</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-metadata" name="analysis-options" value="metadata">
+                    <label for="option-metadata" data-i18n-key="optionMetadata">Song Key, BPM, & Genre ID</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-ai-check" name="analysis-options" value="ai-check">
+                    <label for="option-ai-check" data-i18n-key="optionAiCheck">AI Generation Check</label>
+                </div>
+            </fieldset>
+
+            <button id="submit-button" disabled data-i18n-key="submitButton">Analyze Audio</button>
+
+        </section>
+
+        <section id="result-container" class="output-panel" aria-live="polite">
+          <div class="output-header">
+             <button id="download-button" hidden data-i18n-key="downloadButton">Download Report</button>
+          </div>
+          <div id="loader" class="loader" hidden></div>
+          <div id="result-text" data-i18n-key="initialResultText">Your audio analysis will appear here.</div>
+        </section>
+    </main>
+    <script type="module" src="index.tsx"></script>
+  </body>
+</html>
