@@ -4,14 +4,19 @@
     <title>Mixing Analyzer</title>
     <link rel="stylesheet" href="index.css" />
     <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.sh/@google/genai@^0.7.0",
-          "marked": "https://esm.sh/marked@^15.0.7",
-          "dompurify": "https://esm.sh/dompurify@^3.0.6"
-        }
-      }
-    </script>
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^0.7.0",
+    "marked": "https://esm.sh/marked@^15.0.7",
+    "dompurify": "https://esm.sh/dompurify@^3.0.6",
+    "chart.js/auto": "https://esm.sh/chart.js@^4.4.2/auto",
+    "chartjs-plugin-annotation": "https://esm.sh/chartjs-plugin-annotation@^3.0.1",
+    "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.0/",
+    "jspdf": "https://esm.sh/jspdf@^2.5.1",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1"
+  }
+}
+</script>
   </head>
   <body>
     <main class="app-layout">
@@ -48,20 +53,36 @@
             <fieldset class="analysis-options">
                 <legend data-i18n-key="analysisOptionsTitle">Analysis Options</legend>
                 <div class="checkbox-group">
-                    <input type="checkbox" id="option-mixing" name="analysis-options" value="mixing" checked>
-                    <label for="option-mixing" data-i18n-key="optionMixing">Mixing & Mastering Feedback</label>
+                    <input type="checkbox" id="option-metadata" name="analysis-options" value="metadata" checked>
+                    <label for="option-metadata" data-i18n-key="optionMetadata">Song Key, BPM, & Genre ID</label>
                 </div>
                 <div class="checkbox-group">
-                    <input type="checkbox" id="option-harshness" name="analysis-options" value="harshness" checked>
+                    <input type="checkbox" id="option-eq-plot" name="analysis-options" value="eq-plot" checked>
+                    <label for="option-eq-plot" data-i18n-key="optionEqPlot">EQ Curve & Frequency Plot</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-spectrogram" name="analysis-options" value="spectrogram">
+                    <label for="option-spectrogram" data-i18n-key="optionSpectrogram">Spectrogram Plot</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-balance-eq" name="analysis-options" value="balance-eq">
+                    <label for="option-balance-eq" data-i18n-key="optionBalanceEq">Overall Balance & EQ</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-dynamics" name="analysis-options" value="dynamics">
+                    <label for="option-dynamics" data-i18n-key="optionDynamics">Dynamics & Loudness</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-stereo" name="analysis-options" value="stereo">
+                    <label for="option-stereo" data-i18n-key="optionStereo">Stereo Image Analysis</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="option-harshness" name="analysis-options" value="harshness">
                     <label for="option-harshness" data-i18n-key="optionHarshness">Harshness & Resonance Analysis</label>
                 </div>
                  <div class="checkbox-group">
                     <input type="checkbox" id="option-effects" name="analysis-options" value="effects">
                     <label for="option-effects" data-i18n-key="optionEffects">Reverb & Delay Analysis</label>
-                </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="option-metadata" name="analysis-options" value="metadata">
-                    <label for="option-metadata" data-i18n-key="optionMetadata">Song Key, BPM, & Genre ID</label>
                 </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="option-ai-check" name="analysis-options" value="ai-check">
