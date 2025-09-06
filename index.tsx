@@ -210,6 +210,49 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 /**
+ * Robustly gets the MIME type of a file.
+ */
+function getMimeType(file: File): string {
+    if (file.type) {
+        return file.type;
+    }
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+        case 'flac': return 'audio/flac';
+        case 'wav': return 'audio/wav';
+        case 'mp3': return 'audio/mpeg';
+        default: return 'application/octet-stream'; // A generic fallback
+    }
+}
+
+/**
+ * Gets the duration of an audio file in seconds.
+ * This is a best-effort check and returns 0 if duration can't be determined.
+ */
+function getAudioDuration(file: File): Promise<number> {
+    return new Promise((resolve) => {
+        try {
+            const audio = new Audio();
+            const objectUrl = URL.createObjectURL(file);
+            audio.addEventListener('loadedmetadata', () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(audio.duration);
+            });
+            audio.addEventListener('error', (e) => {
+                URL.revokeObjectURL(objectUrl);
+                console.warn(`Could not determine duration for file ${file.name}. This might happen if the browser doesn't support the audio format, but the AI might still process it.`, e);
+                resolve(0); // Resolve with 0, don't block the request
+            });
+            audio.src = objectUrl;
+        } catch (error) {
+            console.warn(`Error creating Audio object for duration check on ${file.name}:`, error);
+            resolve(0);
+        }
+    });
+}
+
+
+/**
  * Updates the state of the submit button.
  */
 function updateSubmitButtonState() {
@@ -365,6 +408,25 @@ async function handleSubmit() {
   markdownReportContent = '';
 
   try {
+    if (audioFiles.length === 0) {
+        throw new Error("Please select at least one audio file.");
+    }
+      
+    // Client-side checks for better UX
+    if (audioFiles.length > 10) {
+      throw new Error("Analysis is limited to a maximum of 10 files at a time.");
+    }
+    
+    let totalDuration = 0;
+    // This is a best-effort check. Browser might not be able to read all audio formats Gemini can.
+    for (const file of audioFiles) {
+        totalDuration += await getAudioDuration(file);
+    }
+
+    if (totalDuration > 3600) { // 1 hour = 3600 seconds
+        throw new Error(`Total audio duration appears to exceed the 1-hour limit. Your files total approximately ${Math.round(totalDuration / 60)} minutes.`);
+    }
+
     const requestedAnalyses = [];
     if (optionMixing.checked) requestedAnalyses.push("Mixing & Mastering Feedback");
     if (optionHarshness.checked) requestedAnalyses.push("Harshness & Resonance Analysis");
@@ -377,15 +439,19 @@ async function handleSubmit() {
         throw new Error("Please select at least one analysis option.");
     }
     
-    let prompt = `Analyze the following audio file(s). It is a ${audioFiles.length > 1 ? 'set of stems' : 'full mix'}. Please provide the following analyses: ${requestedAnalyses.join(', ')}.`;
-
-    const parts: any[] = [{ text: prompt }];
+    const parts: any[] = [];
+    const promptHeader = `Analyze the following audio file(s). It is a ${audioFiles.length > 1 ? 'set of stems' : 'full mix'}. Please provide the following analyses: ${requestedAnalyses.join(', ')}.`;
+    parts.push({ text: promptHeader });
 
     for (const file of audioFiles) {
+        // For multiple files, explicitly introduce each one to the model.
+        if (audioFiles.length > 1) {
+            parts.push({ text: `This is a stem named "${file.name}":` });
+        }
         const base64Audio = await fileToBase64(file);
         parts.push({
             inlineData: {
-                mimeType: file.type,
+                mimeType: getMimeType(file),
                 data: base64Audio,
             },
         });
