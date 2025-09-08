@@ -104,6 +104,36 @@ const translations = {
     dynamicsLoudnessTitle: '动态与响度分析',
     stereoImageTitle: '立体声声像分析',
   },
+  'zh-TW': {
+    appTitle: '混音分析儀',
+    appDescription: '一款為音訊工程師、製作人和音樂專業人士打造的 AI 驅動混音分析工具。',
+    languageLabel: '語言',
+    uploadLabel: '&#127925; 選擇音軌或音訊素材',
+    noFileSelected: '未選擇檔案',
+    submitButton: '分析音訊',
+    downloadButton: '下載報告',
+    analysisOptionsTitle: '分析選項',
+    optionHarshness: '刺耳聲與共振分析',
+    optionEqPlot: 'EQ 曲線與頻率圖',
+    optionSpectrogram: '頻譜圖',
+    optionEffects: '殘響與延遲分析',
+    optionMetadata: '歌曲調性、BPM 與曲風識別',
+    optionAiCheck: 'AI 生成檢測',
+    optionBalanceEq: '整體平衡與 EQ',
+    optionDynamics: '動態與響度',
+    optionStereo: '立體聲聲像分析',
+    initialResultText: '您的音訊分析將顯示於此。',
+    harshnessAnalysisTitle: '刺耳聲與共振分析',
+    effectsAnalysisTitle: '效果（殘響與延遲）分析',
+    metadataTitle: '歌曲元數據',
+    aiDetectionTitle: 'AI 生成分析',
+    eqPlotTitle: 'EQ 曲線分析',
+    spectrogramTitle: '頻譜圖分析',
+    actionableRecommendationsTitle: '可行的建議',
+    balanceEqTitle: '整體平衡與 EQ 分析',
+    dynamicsLoudnessTitle: '動態與響度分析',
+    stereoImageTitle: '立體聲聲像分析',
+  },
   ja: {
     appTitle: 'ミキシングアナライザー',
     appDescription: 'オーディオエンジニア、プロデューサー、音楽専門家のためのAI搭載ミキシングアナライザーです。',
@@ -133,6 +163,36 @@ const translations = {
     balanceEqTitle: '全体的なバランスとEQ分析',
     dynamicsLoudnessTitle: 'ダイナミクスとラウドネス分析',
     stereoImageTitle: 'ステレオイメージ分析',
+  },
+  ko: {
+    appTitle: '믹싱 분석기',
+    appDescription: '오디오 엔지니어, 프로듀서, 음악 전문가를 위한 AI 기반 믹싱 분석기입니다.',
+    languageLabel: '언어',
+    uploadLabel: '&#127925; 트랙 또는 스템 선택',
+    noFileSelected: '선택된 파일 없음',
+    submitButton: '오디오 분석',
+    downloadButton: '보고서 다운로드',
+    analysisOptionsTitle: '분석 옵션',
+    optionHarshness: '거친 소리 및 공명 분석',
+    optionEqPlot: 'EQ 커브 및 주파수 플롯',
+    optionSpectrogram: '스펙트로그램 플롯',
+    optionEffects: '리버브 및 딜레이 분석',
+    optionMetadata: '곡 키, BPM 및 장르 ID',
+    optionAiCheck: 'AI 생성 확인',
+    optionBalanceEq: '전체적인 밸런스 및 EQ',
+    optionDynamics: '다이내믹스 및 라우드니스',
+    optionStereo: '스테레오 이미지 분석',
+    initialResultText: '오디오 분석 결과가 여기에 표시됩니다.',
+    harshnessAnalysisTitle: '거친 소리 및 공명 분석',
+    effectsAnalysisTitle: '효과(리버브 및 딜레이) 분석',
+    metadataTitle: '곡 메타데이터',
+    aiDetectionTitle: 'AI 생성 분석',
+    eqPlotTitle: 'EQ 커브 분석',
+    spectrogramTitle: '스펙트로그램 분석',
+    actionableRecommendationsTitle: '실행 가능한 권장 사항',
+    balanceEqTitle: '전체적인 밸런스 및 EQ 분석',
+    dynamicsLoudnessTitle: '다이내믹스 및 라우드니스 분석',
+    stereoImageTitle: '스테레오 이미지 분석',
   },
 };
 
@@ -768,9 +828,15 @@ async function handleSubmit() {
     parts.push({ text: finalInstruction });
 
     const contents = { parts };
-    const model = 'gemini-2.5-flash';
+    const model = 'gemini-2.5-flash-lite';
     
-    const languageMap: Record<string, string> = { en: 'English', zh: 'Chinese (Simplified)', ja: 'Japanese' };
+    const languageMap: Record<string, string> = {
+      en: 'English',
+      zh: 'Chinese (Simplified)',
+      'zh-TW': 'Chinese (Traditional)',
+      ja: 'Japanese',
+      ko: 'Korean'
+    };
     const languageName = languageMap[currentLang] || 'English';
     const dynamicSystemInstruction = `${systemInstruction}\n\nIMPORTANT: Your entire response, including all analysis and recommendations, must be written in ${languageName}.`;
 
