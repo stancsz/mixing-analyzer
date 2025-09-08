@@ -68,7 +68,7 @@ header {
 }
 
 .bmc-container {
-    margin-top: 1rem;
+    /* The margin-top is no longer needed here as its position is handled by the flex container. */
 }
 
 .input-panel,
@@ -626,7 +626,8 @@ input[type="file"] {
 
 .output-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
   min-height: 40px; /* Reserve space for the button */
 }
