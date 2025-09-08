@@ -10,6 +10,8 @@
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
   --border-radius-lg: 16px;
   --border-radius-md: 8px;
+  --button-color: #343a40;
+  --button-hover-color: #23272b;
 }
 
 body {
@@ -214,9 +216,24 @@ input[type="file"] {
     transform: rotate(45deg);
 }
 
+.disabled-option {
+    background-color: #f1f3f5;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--border-radius-md);
+}
+
+.disabled-option label {
+    color: var(--secondary-color);
+    cursor: not-allowed;
+}
+
+.disabled-option input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+}
+
 
 #submit-button {
-  background-color: var(--primary-color);
+  background-color: var(--button-color);
   color: var(--on-primary-color);
   border: none;
   border-radius: var(--border-radius-md);
@@ -228,7 +245,7 @@ input[type="file"] {
 }
 
 #submit-button:hover:not(:disabled) {
-  background-color: var(--primary-variant-color);
+  background-color: var(--button-hover-color);
   transform: translateY(-2px);
 }
 

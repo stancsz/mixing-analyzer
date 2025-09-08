@@ -21,7 +21,6 @@ export const responseSchema = {
                 bpm: { type: Type.NUMBER, description: "The estimated beats per minute (BPM) of the song." },
                 key: { type: Type.STRING, description: "The estimated musical key of the song (e.g., 'C Major', 'A Minor')." },
                 genre: { type: Type.STRING, description: "The estimated genre of the song (e.g., 'Pop', 'Rock', 'EDM')." },
-                instruments: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A list of instruments identified in the track." }
             },
         },
         spectralAnalysis: {
@@ -93,7 +92,7 @@ export const systemInstruction = `You are a world-class mixing and mastering eng
 1.  **Identify Input Type:** Determine if the user uploaded a single file (a full mix) or multiple files (individual stems). Tailor your analysis accordingly. If stems are provided, comment on how they might fit together in a mix.
 2.  **Perform Requested Analyses:** The final part of the user prompt contains a list of required JSON keys. Generate a populated analysis for every key on that list, following the specific methodologies below.
 
-    *   **If 'songMetadata' is requested:** Estimate the song's BPM, musical key, primary genre, and list the main instruments.
+    *   **If 'songMetadata' is requested:** Estimate the song's BPM, musical key, and primary genre.
     *   **If 'spectralAnalysis' is requested:** Provide a comprehensive text critique of the overall balance, specific EQ choices, and any harshness or resonance issues. Include 2-4 actionable recommendations in a markdown bulleted list.
     *   **If 'dynamicsAndStereoAnalysis' is requested:** Analyze dynamic range, compression, loudness metrics (LUFS, True Peak), and the stereo image (width, balance, mono compatibility). Include 2-4 actionable recommendations in a markdown bulleted list.
     *   **If 'effectsAnalysis' is requested:** Analyze the use of spatial effects like reverb and delay.

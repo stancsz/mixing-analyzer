@@ -10,12 +10,12 @@ import html2canvas from 'html2canvas';
 import {
   downloadButton, fileInput, fileNameSpan, languageSelector, loader,
   optionAiCheck, optionDynamicsStereo, optionEffects, optionMetadata,
-  optionSpectral, resultText, submitButton
+  optionSpectral, optionTruncate, resultText, submitButton
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
 import { renderAnalysis, updateSubmitButtonState } from './ui';
-import { fileToBase64, getAudioDuration, getMimeType } from './utils';
+import { fileToBase64, getAudioDuration, getMimeType, truncateAudio } from './utils';
 
 // --- App State ---
 let audioFiles: File[] = [];
@@ -83,13 +83,32 @@ async function handleSubmit() {
     parts.push({ text: initialInstruction });
 
     for (const file of audioFiles) {
-        if (audioFiles.length > 1) {
-             parts.push({ text: `This part is a stem named "${file.name}":` });
+        let fileToProcess: File | Blob = file;
+        let mimeType = getMimeType(file);
+        let fileName = file.name;
+
+        if (optionTruncate.checked) {
+            try {
+                console.log(`Truncating ${file.name}...`);
+                const truncatedBlob = await truncateAudio(file);
+                fileToProcess = truncatedBlob;
+                mimeType = 'audio/wav'; // The output of truncateAudio is always WAV
+                const originalNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+                fileName = `${originalNameWithoutExt}_truncated.wav`;
+                console.log(`Truncation complete for ${file.name}.`);
+            } catch (err) {
+                console.error(`Could not truncate audio for ${file.name}. Using the original file.`, err);
+                // Fallback to the original file; variables are already set correctly.
+            }
         }
-        const base64Audio = await fileToBase64(file);
+
+        if (audioFiles.length > 1) {
+             parts.push({ text: `This part is a stem named "${fileName}":` });
+        }
+        const base64Audio = await fileToBase64(fileToProcess);
         parts.push({
             inlineData: {
-                mimeType: getMimeType(file),
+                mimeType: mimeType,
                 data: base64Audio,
             },
         });
@@ -123,6 +142,7 @@ async function handleSubmit() {
         temperature: 0,
         responseMimeType: 'application/json',
         responseSchema,
+        seed: 42,
       },
     });
     

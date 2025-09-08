@@ -13,6 +13,7 @@ export const submitButton = document.getElementById('submit-button') as HTMLButt
 export const downloadButton = document.getElementById('download-button') as HTMLButtonElement;
 export const loader = document.getElementById('loader') as HTMLDivElement;
 export const resultText = document.getElementById('result-text') as HTMLDivElement;
+export const optionTruncate = document.getElementById('option-truncate') as HTMLInputElement;
 export const optionMetadata = document.getElementById('option-metadata') as HTMLInputElement;
 export const optionSpectral = document.getElementById('option-spectral') as HTMLInputElement;
 export const optionDynamicsStereo = document.getElementById('option-dynamics-stereo') as HTMLInputElement;

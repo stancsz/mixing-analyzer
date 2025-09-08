@@ -53,6 +53,14 @@
               <input id="file-upload" type="file" accept="audio/wav,audio/flac,audio/mpeg,.flac" multiple/>
               <span id="file-name" data-i18n-key="noFileSelected">No file(s) selected</span>
             </div>
+            
+            <fieldset class="analysis-options">
+                <legend data-i18n-key="processingOptionsTitle">Processing Options</legend>
+                <div class="checkbox-group disabled-option">
+                    <input type="checkbox" id="option-truncate" name="processing-options" value="truncate" checked disabled>
+                    <label for="option-truncate" data-i18n-key="optionTruncate">Truncate audio to first 45s</label>
+                </div>
+            </fieldset>
 
             <fieldset class="analysis-options">
                 <legend data-i18n-key="analysisOptionsTitle">Analysis Options</legend>
@@ -72,8 +80,8 @@
                     <input type="checkbox" id="option-effects" name="analysis-options" value="effects">
                     <label for="option-effects" data-i18n-key="optionEffects">Reverb & Delay Analysis</label>
                 </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="option-ai-check" name="analysis-options" value="ai-check">
+                <div class="checkbox-group disabled-option">
+                    <input type="checkbox" id="option-ai-check" name="analysis-options" value="ai-check" disabled>
                     <label for="option-ai-check" data-i18n-key="optionAiCheck">AI Generation Check</label>
                 </div>
             </fieldset>

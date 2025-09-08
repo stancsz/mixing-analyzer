@@ -30,9 +30,6 @@ export async function renderAnalysis(analysisData: any, t: Record<string, string
     if (d.bpm) metadataHtml += `<li><strong>BPM:</strong> ${d.bpm}</li>`;
     if (d.key) metadataHtml += `<li><strong>Key:</strong> ${d.key}</li>`;
     if (d.genre) metadataHtml += `<li><strong>Genre:</strong> ${d.genre}</li>`;
-    if (d.instruments && d.instruments.length > 0) {
-      metadataHtml += `<li><strong>Instruments:</strong> ${d.instruments.join(', ')}</li>`;
-    }
     metadataHtml += '</ul>';
     finalHtml += metadataHtml;
   }
