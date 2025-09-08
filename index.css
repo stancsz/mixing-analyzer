@@ -278,6 +278,31 @@ input[type="file"] {
     align-items: center;
     gap: 1rem;
 }
+
+.header-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.reset-button {
+    background-color: transparent;
+    color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.reset-button:hover:not(:disabled) {
+    background-color: #e9ecef;
+    border-color: var(--secondary-color);
+    color: var(--on-surface-color);
+}
+
 .eq-controls {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -429,6 +454,12 @@ input[type="file"] {
     padding: 1rem;
     border-radius: var(--border-radius-md);
     border: 1px solid var(--border-color);
+}
+
+.compressor-global-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .crossover-controls {

@@ -28,6 +28,7 @@ export const eqCurveCanvas = document.getElementById('eq-curve-canvas') as HTMLC
 export const downloadProcessedButton = document.getElementById('download-processed-button') as HTMLButtonElement;
 
 // EQ Controls
+export const eqResetButton = document.getElementById('eq-reset-button') as HTMLButtonElement;
 export const lowGainSlider = document.getElementById('low-gain') as HTMLInputElement;
 export const midGainSlider = document.getElementById('mid-gain') as HTMLInputElement;
 export const highGainSlider = document.getElementById('high-gain') as HTMLInputElement;
@@ -58,6 +59,7 @@ export const midFilterType = document.getElementById('mid-filter-type') as HTMLS
 export const highFilterType = document.getElementById('high-filter-type') as HTMLSelectElement;
 
 // Compressor Controls
+export const compressorResetButton = document.getElementById('compressor-reset-button') as HTMLButtonElement;
 export const compressorEnable = document.getElementById('compressor-enable') as HTMLInputElement;
 export const lowMidCrossover = document.getElementById('low-mid-crossover') as HTMLInputElement;
 export const midHighCrossover = document.getElementById('mid-high-crossover') as HTMLInputElement;

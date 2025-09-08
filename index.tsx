@@ -21,7 +21,7 @@ import {
   midCompThreshold, midCompRatio, midCompAttack, midCompRelease, midCompMakeup, midCompThresholdValue,
   midCompRatioValue, midCompAttackValue, midCompReleaseValue, midCompMakeupValue, highCompThreshold,
   highCompRatio, highCompAttack, highCompRelease, highCompMakeup, highCompThresholdValue, highCompRatioValue,
-  highCompAttackValue, highCompReleaseValue, highCompMakeupValue
+  highCompAttackValue, highCompReleaseValue, highCompMakeupValue, eqResetButton, compressorResetButton
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
@@ -618,6 +618,45 @@ function handleEqChange(event: Event) {
     updateStaticEqCurve();
 }
 
+function handleEqReset() {
+    // Reset sliders and inputs to their HTML default values
+    [lowGainSlider, midGainSlider, highGainSlider, lowFreqInput, midFreqInput, highFreqInput, lowQSlider, midQSlider, highQSlider].forEach(slider => {
+        slider.value = slider.defaultValue;
+    });
+
+    // Reset select elements
+    [lowFilterType, midFilterType, highFilterType].forEach(select => {
+        const defaultOption = select.querySelector('option[selected]');
+        if (defaultOption) {
+            select.value = (defaultOption as HTMLOptionElement).value;
+        } else if (select.options.length > 0) {
+            select.value = select.options[0].value; // Fallback
+        }
+    });
+
+    updateAllEqValues(); // Apply changes to audio nodes
+    updateAllQControlsState(); // Update disabled state of Q sliders
+    updateStaticEqCurve(); // Redraw the curve
+}
+
+function handleCompressorReset() {
+    // Reset all compressor sliders to their HTML default values
+    [
+        lowMidCrossover, midHighCrossover,
+        lowCompThreshold, lowCompRatio, lowCompAttack, lowCompRelease, lowCompMakeup,
+        midCompThreshold, midCompRatio, midCompAttack, midCompRelease, midCompMakeup,
+        highCompThreshold, highCompRatio, highCompAttack, highCompRelease, highCompMakeup
+    ].forEach(slider => {
+        slider.value = slider.defaultValue;
+    });
+    
+    // Reset the enable checkbox to its default state
+    compressorEnable.checked = compressorEnable.defaultChecked;
+
+    updateAllCompressorValues(); // Apply changes to audio nodes
+    updateCompressorBypass(); // Apply the enable/disable state
+}
+
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const files = target.files;
@@ -943,6 +982,7 @@ function main() {
   // EQ Listeners
   const eqControls = [lowGainSlider, midGainSlider, highGainSlider, lowFreqInput, midFreqInput, highFreqInput, lowQSlider, midQSlider, highQSlider, lowFilterType, midFilterType, highFilterType];
   eqControls.forEach(control => control.addEventListener('input', handleEqChange));
+  eqResetButton.addEventListener('click', handleEqReset);
 
   // Compressor Listeners
   const compControls = [
@@ -952,6 +992,7 @@ function main() {
       highCompThreshold, highCompRatio, highCompAttack, highCompRelease, highCompMakeup
   ];
   compControls.forEach(control => control.addEventListener('input', handleCompressorChange));
+  compressorResetButton.addEventListener('click', handleCompressorReset);
 
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
