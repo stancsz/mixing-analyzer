@@ -1,0 +1,68 @@
+name: Restore README on push
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  restore-readme:
+    name: Restore README if changed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if README.md changed and restore it from specific commit
+        env:
+          PREV_SHA: ${{ github.event.before }}
+          CUR_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Previous SHA: $PREV_SHA"
+          echo "Current SHA:  $CUR_SHA"
+
+          # Handle initial push where before may be all zeros
+          if [ "$PREV_SHA" = "0000000000000000000000000000000000000000" ]; then
+            # Use the current sha as the right-hand side for the diff
+            DIFF_RANGE="$CUR_SHA"
+          else
+            DIFF_RANGE="$PREV_SHA..$CUR_SHA"
+          fi
+
+          echo "Diff range: $DIFF_RANGE"
+
+          # Get changed files in the push
+          CHANGED_FILES=$(git diff --name-only $PREV_SHA $CUR_SHA || true)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check for README.md specifically
+          if echo "$CHANGED_FILES" | grep -xq "README.md"; then
+            echo "README.md was changed in this push — restoring from pinned commit"
+            git checkout 89516d15250f54ddc3850191641115a15748f37b -- README.md
+
+            # If checkout produced changes, stage and amend the commit
+            if ! git diff --quiet -- README.md; then
+              git add README.md
+              git commit --amend --no-edit
+              # Force push amended commit to master (use --force-with-lease to be safer)
+              git push origin HEAD:master --force-with-lease
+              echo "README restored and last commit amended & pushed."
+            else
+              echo "README is identical to pinned version; nothing to amend."
+            fi
+          else
+            echo "README.md not changed; nothing to do."
+          fi
