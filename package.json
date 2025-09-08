@@ -18,7 +18,8 @@
     "./gemini": "latest",
     "./i18n": "latest",
     "./ui": "latest",
-    "./utils": "latest"
+    "./utils": "latest",
+    "./visualizer": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

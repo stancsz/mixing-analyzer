@@ -8,33 +8,310 @@ import jsPDF from 'jspdf';
 // FIX: Import html2canvas to resolve 'Cannot find name' error.
 import html2canvas from 'html2canvas';
 import {
-  downloadButton, fileInput, fileNameSpan, languageSelector, loader,
+  downloadButton, eqCurveCanvas, fileInput, fileNameSpan, highGainSlider, highGainValue,
+  languageSelector, loader, lowGainSlider, lowGainValue, midGainSlider, midGainValue,
   optionAiCheck, optionDynamicsStereo, optionEffects, optionMetadata,
-  optionSpectral, optionTruncate, resultText, submitButton
+  optionSpectral, optionTruncate, playPauseButton, progressBar,
+  resultText, spectrogramCanvas, submitButton, timelineContainer, visualizerPanel,
+  lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
 import { renderAnalysis, updateSubmitButtonState } from './ui';
 import { fileToBase64, getAudioDuration, getMimeType, truncateAudio } from './utils';
+import { drawEqCurve, drawSpectrogram } from './visualizer';
 
 // --- App State ---
 let audioFiles: File[] = [];
 let currentLang = 'en';
 
+// --- Visualizer State ---
+let audioContext: AudioContext | null = null;
+let audioBuffer: AudioBuffer | null = null;
+let sourceNode: AudioBufferSourceNode | null = null;
+let analyserNodeSpectrogram: AnalyserNode | null = null;
+let analyserNodeEq: AnalyserNode | null = null;
+let lowFilter: BiquadFilterNode | null = null;
+let midFilter: BiquadFilterNode | null = null;
+let highFilter: BiquadFilterNode | null = null;
+let eqFilters: BiquadFilterNode[] = [];
+let isPlaying = false;
+let animationFrameId: number | null = null;
+let startTime = 0;
+let startOffset = 0;
+
+const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg>`;
+const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z"/></svg>`;
+
+// --- Visualizer Functions ---
+
+function cleanupVisualizer() {
+  if (sourceNode) {
+    sourceNode.stop();
+    sourceNode.disconnect();
+    sourceNode = null;
+  }
+  if (analyserNodeSpectrogram) {
+    analyserNodeSpectrogram.disconnect();
+    analyserNodeSpectrogram = null;
+  }
+  if (analyserNodeEq) {
+    analyserNodeEq.disconnect();
+    analyserNodeEq = null;
+  }
+  if (lowFilter) lowFilter.disconnect();
+  if (midFilter) midFilter.disconnect();
+  if (highFilter) highFilter.disconnect();
+  lowFilter = midFilter = highFilter = null;
+  eqFilters = [];
+
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  audioBuffer = null;
+  isPlaying = false;
+  startOffset = 0;
+  startTime = 0;
+  progressBar.style.width = '0%';
+  playPauseButton.innerHTML = playIcon;
+}
+
+function updateStaticEqCurve() {
+  if (!audioContext || !eqCurveCanvas || eqFilters.length === 0) return;
+  const eqCtx = eqCurveCanvas.getContext('2d');
+  if (eqCtx) {
+    drawEqCurve(eqFilters, eqCtx, eqCurveCanvas.width, eqCurveCanvas.height, audioContext.sampleRate);
+  }
+}
+
+
+async function setupAudio(file: File) {
+  cleanupVisualizer();
+  audioContext = new AudioContext();
+
+  // Set canvas dimensions to match display size for crisp rendering
+  const eqRect = eqCurveCanvas.getBoundingClientRect();
+  eqCurveCanvas.width = eqRect.width;
+  eqCurveCanvas.height = eqRect.height;
+
+  const specRect = spectrogramCanvas.getBoundingClientRect();
+  spectrogramCanvas.width = specRect.width;
+  spectrogramCanvas.height = specRect.height;
+
+  // Create analysers
+  analyserNodeEq = audioContext.createAnalyser();
+  analyserNodeEq.fftSize = 2048;
+  analyserNodeEq.smoothingTimeConstant = 0.8;
+  analyserNodeEq.minDecibels = -90;
+  analyserNodeEq.maxDecibels = -10;
+
+  // Create and configure EQ filters
+  lowFilter = audioContext.createBiquadFilter();
+  lowFilter.type = 'peaking'; // Changed from lowshelf
+  lowFilter.frequency.value = parseFloat(lowFreqInput.value);
+  lowFilter.Q.value = parseFloat(lowQSlider.value);
+  lowFilter.gain.value = parseFloat(lowGainSlider.value);
+
+  midFilter = audioContext.createBiquadFilter();
+  midFilter.type = 'peaking';
+  midFilter.frequency.value = parseFloat(midFreqInput.value);
+  midFilter.Q.value = parseFloat(midQSlider.value);
+  midFilter.gain.value = parseFloat(midGainSlider.value);
+  
+  highFilter = audioContext.createBiquadFilter();
+  highFilter.type = 'peaking'; // Changed from highshelf
+  highFilter.frequency.value = parseFloat(highFreqInput.value);
+  highFilter.Q.value = parseFloat(highQSlider.value);
+  highFilter.gain.value = parseFloat(highGainSlider.value);
+  
+  eqFilters = [lowFilter, midFilter, highFilter];
+  
+  const arrayBuffer = await file.arrayBuffer();
+  audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+  updateStaticEqCurve(); // Initial draw
+  playPauseButton.disabled = false;
+}
+
+function renderVisualizations() {
+  if (!analyserNodeSpectrogram || !audioContext || !audioBuffer || !analyserNodeEq) return;
+
+  const spectrogramCtx = spectrogramCanvas.getContext('2d');
+  const eqCtx = eqCurveCanvas.getContext('2d');
+
+  if (spectrogramCtx) {
+    drawSpectrogram(analyserNodeSpectrogram, spectrogramCtx, spectrogramCanvas.width, spectrogramCanvas.height);
+  }
+
+  if (eqCtx) {
+      drawEqCurve(eqFilters, eqCtx, eqCurveCanvas.width, eqCurveCanvas.height, audioContext.sampleRate, analyserNodeEq);
+  }
+
+  const elapsedTime = audioContext.currentTime - startTime + startOffset;
+  const progress = (elapsedTime / audioBuffer.duration) * 100;
+  progressBar.style.width = `${Math.min(progress, 100)}%`;
+
+  if (isPlaying) {
+    animationFrameId = requestAnimationFrame(renderVisualizations);
+  }
+}
+
+function playAudio() {
+  if (!audioContext || !audioBuffer || isPlaying || !lowFilter || !midFilter || !highFilter || !analyserNodeEq) return;
+
+  sourceNode = audioContext.createBufferSource();
+  sourceNode.buffer = audioBuffer;
+
+  analyserNodeSpectrogram = audioContext.createAnalyser();
+  analyserNodeSpectrogram.fftSize = 512;
+  
+  // Connect the audio graph: source -> EQ -> analysers -> destination
+  sourceNode.connect(lowFilter)
+    .connect(midFilter)
+    .connect(highFilter);
+
+  // Split the post-EQ signal to the destination and both analysers
+  highFilter.connect(audioContext.destination);
+  highFilter.connect(analyserNodeSpectrogram);
+  highFilter.connect(analyserNodeEq);
+
+
+  const offset = startOffset % audioBuffer.duration;
+  sourceNode.start(0, offset);
+  
+  sourceNode.onended = () => {
+      if (isPlaying) { // Only reset if it was playing and ended naturally
+          pauseAudio();
+          startOffset = 0;
+          progressBar.style.width = '0%';
+      }
+  };
+
+  startTime = audioContext.currentTime;
+  isPlaying = true;
+  playPauseButton.innerHTML = pauseIcon;
+  renderVisualizations();
+}
+
+function pauseAudio() {
+  if (!sourceNode || !audioContext || !isPlaying) return;
+  sourceNode.stop();
+  startOffset += audioContext.currentTime - startTime;
+  isPlaying = false;
+  playPauseButton.innerHTML = playIcon;
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  // Redraw the static curve when pausing
+  updateStaticEqCurve();
+}
+
 // --- Event Handlers ---
+
+function handlePlayPause() {
+  if (isPlaying) {
+    pauseAudio();
+  } else {
+    playAudio();
+  }
+}
+
+function handleTimelineScrub(event: MouseEvent) {
+    if (!audioBuffer || !audioContext) return;
+    
+    const timeline = timelineContainer;
+    const rect = timeline.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const clickRatio = Math.max(0, Math.min(1, offsetX / timeline.clientWidth));
+    
+    const newTime = clickRatio * audioBuffer.duration;
+    startOffset = newTime;
+    
+    progressBar.style.width = `${clickRatio * 100}%`;
+
+    if (isPlaying) {
+        if (sourceNode) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode.disconnect();
+            sourceNode = null;
+        }
+        playAudio();
+    }
+}
+
+function formatFrequency(hz: number): string {
+  if (hz >= 1000) {
+    return `${(hz / 1000).toFixed(1)} kHz`;
+  }
+  return `${Math.round(hz)} Hz`;
+}
+
+function handleEqChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const value = parseFloat(target.value);
+
+    // Gain Sliders
+    if (target === lowGainSlider && lowFilter) {
+        lowFilter.gain.value = value;
+        lowGainValue.textContent = `${value} dB`;
+    } else if (target === midGainSlider && midFilter) {
+        midFilter.gain.value = value;
+        midGainValue.textContent = `${value} dB`;
+    } else if (target === highGainSlider && highFilter) {
+        highFilter.gain.value = value;
+        highGainValue.textContent = `${value} dB`;
+    }
+    // Frequency Sliders
+    else if (target === lowFreqInput && lowFilter) {
+        lowFilter.frequency.value = value;
+        lowFreqValue.textContent = formatFrequency(value);
+    } else if (target === midFreqInput && midFilter) {
+        midFilter.frequency.value = value;
+        midFreqValue.textContent = formatFrequency(value);
+    } else if (target === highFreqInput && highFilter) {
+        highFilter.frequency.value = value;
+        highFreqValue.textContent = formatFrequency(value);
+    }
+    // Q Sliders
+    else if (target === lowQSlider && lowFilter) {
+        lowFilter.Q.value = value;
+        lowQValue.textContent = value.toFixed(1);
+    } else if (target === midQSlider && midFilter) {
+        midFilter.Q.value = value;
+        midQValue.textContent = value.toFixed(1);
+    } else if (target === highQSlider && highFilter) {
+        highFilter.Q.value = value;
+        highQValue.textContent = value.toFixed(1);
+    }
+    
+    updateStaticEqCurve();
+}
 
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const files = target.files;
   const t = translations[currentLang];
+  
+  cleanupVisualizer();
+
   if (files && files.length > 0) {
     audioFiles = Array.from(files);
     fileNameSpan.textContent = audioFiles.length === 1
       ? audioFiles[0].name
       : `${audioFiles.length} files selected`;
+    visualizerPanel.hidden = false;
+    setupAudio(audioFiles[0]);
   } else {
     audioFiles = [];
     fileNameSpan.textContent = t.noFileSelected;
+    visualizerPanel.hidden = true;
   }
   updateSubmitButtonState(audioFiles);
 }
@@ -242,12 +519,45 @@ function setLanguage(lang: string) {
   }
 }
 
+function updateAllEqDisplays() {
+    lowGainValue.textContent = `${lowGainSlider.value} dB`;
+    midGainValue.textContent = `${midGainSlider.value} dB`;
+    highGainValue.textContent = `${highGainSlider.value} dB`;
+
+    lowFreqValue.textContent = formatFrequency(parseFloat(lowFreqInput.value));
+    midFreqValue.textContent = formatFrequency(parseFloat(midFreqInput.value));
+    highFreqValue.textContent = formatFrequency(parseFloat(highFreqInput.value));
+
+    lowQValue.textContent = parseFloat(lowQSlider.value).toFixed(1);
+    midQValue.textContent = parseFloat(midQSlider.value).toFixed(1);
+    highQValue.textContent = parseFloat(highQSlider.value).toFixed(1);
+}
+
+
 // --- Initialization ---
 function main() {
   fileInput.addEventListener('change', handleFileChange);
   submitButton.addEventListener('click', handleSubmit);
   downloadButton.addEventListener('click', handleDownload);
   languageSelector.addEventListener('change', (e) => setLanguage((e.target as HTMLSelectElement).value));
+  playPauseButton.addEventListener('click', handlePlayPause);
+  timelineContainer.addEventListener('click', handleTimelineScrub);
+  
+  // EQ Listeners
+  lowGainSlider.addEventListener('input', handleEqChange);
+  midGainSlider.addEventListener('input', handleEqChange);
+  highGainSlider.addEventListener('input', handleEqChange);
+  lowFreqInput.addEventListener('input', handleEqChange);
+  midFreqInput.addEventListener('input', handleEqChange);
+  highFreqInput.addEventListener('input', handleEqChange);
+  lowQSlider.addEventListener('input', handleEqChange);
+  midQSlider.addEventListener('input', handleEqChange);
+  highQSlider.addEventListener('input', handleEqChange);
+
+
+  playPauseButton.innerHTML = playIcon;
+  playPauseButton.disabled = true;
+  updateAllEqDisplays();
   setLanguage(currentLang);
   updateSubmitButtonState(audioFiles); // Initial state
 }

@@ -15,7 +15,8 @@
     "./gemini": "./gemini.ts",
     "./i18n": "./i18n.ts",
     "./ui": "./ui.ts",
-    "./utils": "./utils.ts"
+    "./utils": "./utils.ts",
+    "./visualizer": "./visualizer.ts"
   }
 }
 </script>
@@ -54,6 +55,90 @@
               <span id="file-name" data-i18n-key="noFileSelected">No file(s) selected</span>
             </div>
             
+            <div id="visualizer-panel" class="visualizer-panel" hidden>
+                <h3 class="visualizer-title" data-i18n-key="realTimeAnalysisTitle">Real-time Analysis</h3>
+                <div class="visualizer-controls">
+                    <button id="play-pause-button" aria-label="Play/Pause"></button>
+                    <div id="timeline-container">
+                        <div id="progress-bar"></div>
+                    </div>
+                </div>
+                <div class="canvas-grid">
+                    <div class="canvas-container">
+                        <label for="spectrogram-canvas" data-i18n-key="spectrogramLabel">Spectrogram</label>
+                        <canvas id="spectrogram-canvas"></canvas>
+                    </div>
+                </div>
+                 <div class="eq-section">
+                    <div class="canvas-container eq-curve-container">
+                        <label for="eq-curve-canvas" data-i18n-key="eqCurveLabel">EQ Curve</label>
+                        <canvas id="eq-curve-canvas"></canvas>
+                    </div>
+                    <div class="eq-controls-container">
+                        <h4 class="visualizer-subtitle" data-i18n-key="eqControlsTitle">3-Band Equalizer</h4>
+                        <div class="eq-controls">
+                            <!-- Low Band -->
+                            <div class="eq-band">
+                                <h5 data-i18n-key="eqLowLabel">Low Band</h5>
+                                <div class="eq-slider">
+                                    <label for="low-gain" data-i18n-key="eqGainLabel">Gain</label>
+                                    <input type="range" id="low-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
+                                    <span id="low-gain-value" class="gain-value">0 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-freq" data-i18n-key="eqFreqLabel">Frequency</label>
+                                    <input type="range" id="low-freq" min="30" max="400" value="100" step="1">
+                                    <span id="low-freq-value" class="gain-value">100 Hz</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-q" data-i18n-key="eqQLabel">Q Factor</label>
+                                    <input type="range" id="low-q" min="0.1" max="10" value="1" step="0.1">
+                                    <span id="low-q-value" class="gain-value">1.0</span>
+                                </div>
+                            </div>
+                            <!-- Mid Band -->
+                            <div class="eq-band">
+                                <h5 data-i18n-key="eqMidLabel">Mid Band</h5>
+                                <div class="eq-slider">
+                                    <label for="mid-gain" data-i18n-key="eqGainLabel">Gain</label>
+                                    <input type="range" id="mid-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
+                                    <span id="mid-gain-value" class="gain-value">0 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-freq" data-i18n-key="eqFreqLabel">Frequency</label>
+                                    <input type="range" id="mid-freq" min="200" max="5000" value="1000" step="10">
+                                    <span id="mid-freq-value" class="gain-value">1.0 kHz</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-q" data-i18n-key="eqQLabel">Q Factor</label>
+                                    <input type="range" id="mid-q" min="0.1" max="10" value="1" step="0.1">
+                                    <span id="mid-q-value" class="gain-value">1.0</span>
+                                </div>
+                            </div>
+                            <!-- High Band -->
+                            <div class="eq-band">
+                                <h5 data-i18n-key="eqHighLabel">High Band</h5>
+                                <div class="eq-slider">
+                                    <label for="high-gain" data-i18n-key="eqGainLabel">Gain</label>
+                                    <input type="range" id="high-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
+                                    <span id="high-gain-value" class="gain-value">0 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-freq" data-i18n-key="eqFreqLabel">Frequency</label>
+                                    <input type="range" id="high-freq" min="2000" max="20000" value="10000" step="100">
+                                    <span id="high-freq-value" class="gain-value">10.0 kHz</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-q" data-i18n-key="eqQLabel">Q Factor</label>
+                                    <input type="range" id="high-q" min="0.1" max="10" value="1" step="0.1">
+                                    <span id="high-q-value" class="gain-value">1.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <fieldset class="analysis-options">
                 <legend data-i18n-key="processingOptionsTitle">Processing Options</legend>
                 <div class="checkbox-group disabled-option">
