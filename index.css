@@ -292,6 +292,18 @@ input[type="file"] {
     font-weight: 600;
     text-align: center;
 }
+
+.eq-band select {
+  background-color: var(--surface-color);
+  color: var(--on-surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+}
+
 .eq-slider {
     display: flex;
     flex-direction: column;
@@ -331,6 +343,28 @@ input[type="file"] {
   background: var(--primary-color);
   cursor: pointer;
 }
+
+.eq-slider.q-disabled label,
+.eq-slider.q-disabled .gain-value {
+    color: #adb5bd;
+}
+
+.eq-slider.q-disabled input[type="range"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.eq-slider.q-disabled input[type="range"]::-webkit-slider-thumb {
+  background: var(--secondary-color);
+  cursor: not-allowed;
+}
+
+.eq-slider.q-disabled input[type="range"]::-moz-range-thumb {
+  background: var(--secondary-color);
+  cursor: not-allowed;
+}
+
+
 .gain-value {
     font-size: 0.8rem;
     color: var(--secondary-color);

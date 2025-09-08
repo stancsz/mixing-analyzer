@@ -81,6 +81,18 @@
                             <div class="eq-band">
                                 <h5 data-i18n-key="eqLowLabel">Low Band</h5>
                                 <div class="eq-slider">
+                                    <label for="low-filter-type" data-i18n-key="eqTypeLabel">Type</label>
+                                    <select id="low-filter-type">
+                                        <option value="peaking" selected>Bell (Peaking)</option>
+                                        <option value="lowshelf">Low Shelf</option>
+                                        <option value="highshelf">High Shelf</option>
+                                        <option value="lowpass">Low Pass</option>
+                                        <option value="highpass">High Pass</option>
+                                        <option value="bandpass">Bandpass</option>
+                                        <option value="notch">Notch</option>
+                                    </select>
+                                </div>
+                                <div class="eq-slider">
                                     <label for="low-gain" data-i18n-key="eqGainLabel">Gain</label>
                                     <input type="range" id="low-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
                                     <span id="low-gain-value" class="gain-value">0 dB</span>
@@ -90,7 +102,7 @@
                                     <input type="range" id="low-freq" min="30" max="400" value="100" step="1">
                                     <span id="low-freq-value" class="gain-value">100 Hz</span>
                                 </div>
-                                <div class="eq-slider">
+                                <div class="eq-slider" id="low-q-container">
                                     <label for="low-q" data-i18n-key="eqQLabel">Q Factor</label>
                                     <input type="range" id="low-q" min="0.1" max="10" value="1" step="0.1">
                                     <span id="low-q-value" class="gain-value">1.0</span>
@@ -99,6 +111,18 @@
                             <!-- Mid Band -->
                             <div class="eq-band">
                                 <h5 data-i18n-key="eqMidLabel">Mid Band</h5>
+                                <div class="eq-slider">
+                                    <label for="mid-filter-type" data-i18n-key="eqTypeLabel">Type</label>
+                                    <select id="mid-filter-type">
+                                        <option value="peaking" selected>Bell (Peaking)</option>
+                                        <option value="lowshelf">Low Shelf</option>
+                                        <option value="highshelf">High Shelf</option>
+                                        <option value="lowpass">Low Pass</option>
+                                        <option value="highpass">High Pass</option>
+                                        <option value="bandpass">Bandpass</option>
+                                        <option value="notch">Notch</option>
+                                    </select>
+                                </div>
                                 <div class="eq-slider">
                                     <label for="mid-gain" data-i18n-key="eqGainLabel">Gain</label>
                                     <input type="range" id="mid-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
@@ -109,7 +133,7 @@
                                     <input type="range" id="mid-freq" min="200" max="5000" value="1000" step="10">
                                     <span id="mid-freq-value" class="gain-value">1.0 kHz</span>
                                 </div>
-                                <div class="eq-slider">
+                                <div class="eq-slider" id="mid-q-container">
                                     <label for="mid-q" data-i18n-key="eqQLabel">Q Factor</label>
                                     <input type="range" id="mid-q" min="0.1" max="10" value="1" step="0.1">
                                     <span id="mid-q-value" class="gain-value">1.0</span>
@@ -118,6 +142,18 @@
                             <!-- High Band -->
                             <div class="eq-band">
                                 <h5 data-i18n-key="eqHighLabel">High Band</h5>
+                                 <div class="eq-slider">
+                                    <label for="high-filter-type" data-i18n-key="eqTypeLabel">Type</label>
+                                    <select id="high-filter-type">
+                                        <option value="peaking" selected>Bell (Peaking)</option>
+                                        <option value="lowshelf">Low Shelf</option>
+                                        <option value="highshelf">High Shelf</option>
+                                        <option value="lowpass">Low Pass</option>
+                                        <option value="highpass">High Pass</option>
+                                        <option value="bandpass">Bandpass</option>
+                                        <option value="notch">Notch</option>
+                                    </select>
+                                </div>
                                 <div class="eq-slider">
                                     <label for="high-gain" data-i18n-key="eqGainLabel">Gain</label>
                                     <input type="range" id="high-gain" class="eq-gain-slider" min="-12" max="12" value="0" step="1">
@@ -128,7 +164,7 @@
                                     <input type="range" id="high-freq" min="2000" max="20000" value="10000" step="100">
                                     <span id="high-freq-value" class="gain-value">10.0 kHz</span>
                                 </div>
-                                <div class="eq-slider">
+                                <div class="eq-slider" id="high-q-container">
                                     <label for="high-q" data-i18n-key="eqQLabel">Q Factor</label>
                                     <input type="range" id="high-q" min="0.1" max="10" value="1" step="0.1">
                                     <span id="high-q-value" class="gain-value">1.0</span>

@@ -41,6 +41,7 @@ export const translations = {
     eqGainLabel: 'Gain',
     eqFreqLabel: 'Frequency',
     eqQLabel: 'Q Factor',
+    eqTypeLabel: 'Type',
   },
   zh: {
     appTitle: '混音分析器',
@@ -76,6 +77,7 @@ export const translations = {
     eqGainLabel: '增益',
     eqFreqLabel: '频率',
     eqQLabel: 'Q值',
+    eqTypeLabel: '类型',
   },
   'zh-TW': {
     appTitle: '混音分析儀',
@@ -111,6 +113,7 @@ export const translations = {
     eqGainLabel: '增益',
     eqFreqLabel: '頻率',
     eqQLabel: 'Q值',
+    eqTypeLabel: '類型',
   },
   ja: {
     appTitle: 'ミキシングアナライザー',
@@ -146,6 +149,7 @@ export const translations = {
     eqGainLabel: 'ゲイン',
     eqFreqLabel: '周波数',
     eqQLabel: 'Q値',
+    eqTypeLabel: 'タイプ',
   },
   ko: {
     appTitle: '믹싱 분석기',
@@ -181,5 +185,6 @@ export const translations = {
     eqGainLabel: '게인',
     eqFreqLabel: '주파수',
     eqQLabel: 'Q 팩터',
+    eqTypeLabel: '유형',
   },
 };

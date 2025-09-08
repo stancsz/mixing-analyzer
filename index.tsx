@@ -13,7 +13,8 @@ import {
   optionAiCheck, optionDynamicsStereo, optionEffects, optionMetadata,
   optionSpectral, optionTruncate, playPauseButton, progressBar,
   resultText, spectrogramCanvas, submitButton, timelineContainer, visualizerPanel,
-  lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue
+  lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue,
+  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
@@ -112,19 +113,19 @@ async function setupAudio(file: File) {
 
   // Create and configure EQ filters
   lowFilter = audioContext.createBiquadFilter();
-  lowFilter.type = 'peaking'; // Changed from lowshelf
+  lowFilter.type = lowFilterType.value as BiquadFilterType;
   lowFilter.frequency.value = parseFloat(lowFreqInput.value);
   lowFilter.Q.value = parseFloat(lowQSlider.value);
   lowFilter.gain.value = parseFloat(lowGainSlider.value);
 
   midFilter = audioContext.createBiquadFilter();
-  midFilter.type = 'peaking';
+  midFilter.type = midFilterType.value as BiquadFilterType;
   midFilter.frequency.value = parseFloat(midFreqInput.value);
   midFilter.Q.value = parseFloat(midQSlider.value);
   midFilter.gain.value = parseFloat(midGainSlider.value);
   
   highFilter = audioContext.createBiquadFilter();
-  highFilter.type = 'peaking'; // Changed from highshelf
+  highFilter.type = highFilterType.value as BiquadFilterType;
   highFilter.frequency.value = parseFloat(highFreqInput.value);
   highFilter.Q.value = parseFloat(highQSlider.value);
   highFilter.gain.value = parseFloat(highGainSlider.value);
@@ -253,42 +254,72 @@ function formatFrequency(hz: number): string {
   return `${Math.round(hz)} Hz`;
 }
 
+/**
+ * Enables or disables the Q slider based on the filter type.
+ */
+function updateQControlState(type: string, qContainer: HTMLDivElement, qSlider: HTMLInputElement) {
+    const usesQ = ['peaking', 'bandpass', 'notch'].includes(type);
+    qSlider.disabled = !usesQ;
+    if (usesQ) {
+        qContainer.classList.remove('q-disabled');
+    } else {
+        qContainer.classList.add('q-disabled');
+    }
+}
+
 function handleEqChange(event: Event) {
-    const target = event.target as HTMLInputElement;
-    const value = parseFloat(target.value);
+    const target = event.target as HTMLInputElement | HTMLSelectElement;
+    const value = target.value;
 
     // Gain Sliders
     if (target === lowGainSlider && lowFilter) {
-        lowFilter.gain.value = value;
+        lowFilter.gain.value = parseFloat(value);
         lowGainValue.textContent = `${value} dB`;
     } else if (target === midGainSlider && midFilter) {
-        midFilter.gain.value = value;
+        midFilter.gain.value = parseFloat(value);
         midGainValue.textContent = `${value} dB`;
     } else if (target === highGainSlider && highFilter) {
-        highFilter.gain.value = value;
+        highFilter.gain.value = parseFloat(value);
         highGainValue.textContent = `${value} dB`;
     }
     // Frequency Sliders
     else if (target === lowFreqInput && lowFilter) {
-        lowFilter.frequency.value = value;
-        lowFreqValue.textContent = formatFrequency(value);
+        const freq = parseFloat(value);
+        lowFilter.frequency.value = freq;
+        lowFreqValue.textContent = formatFrequency(freq);
     } else if (target === midFreqInput && midFilter) {
-        midFilter.frequency.value = value;
-        midFreqValue.textContent = formatFrequency(value);
+        const freq = parseFloat(value);
+        midFilter.frequency.value = freq;
+        midFreqValue.textContent = formatFrequency(freq);
     } else if (target === highFreqInput && highFilter) {
-        highFilter.frequency.value = value;
-        highFreqValue.textContent = formatFrequency(value);
+        const freq = parseFloat(value);
+        highFilter.frequency.value = freq;
+        highFreqValue.textContent = formatFrequency(freq);
     }
     // Q Sliders
     else if (target === lowQSlider && lowFilter) {
-        lowFilter.Q.value = value;
-        lowQValue.textContent = value.toFixed(1);
+        const q = parseFloat(value);
+        lowFilter.Q.value = q;
+        lowQValue.textContent = q.toFixed(1);
     } else if (target === midQSlider && midFilter) {
-        midFilter.Q.value = value;
-        midQValue.textContent = value.toFixed(1);
+        const q = parseFloat(value);
+        midFilter.Q.value = q;
+        midQValue.textContent = q.toFixed(1);
     } else if (target === highQSlider && highFilter) {
-        highFilter.Q.value = value;
-        highQValue.textContent = value.toFixed(1);
+        const q = parseFloat(value);
+        highFilter.Q.value = q;
+        highQValue.textContent = q.toFixed(1);
+    }
+    // Filter Type Selectors
+    else if (target === lowFilterType && lowFilter) {
+        lowFilter.type = value as BiquadFilterType;
+        updateQControlState(value, lowQContainer, lowQSlider);
+    } else if (target === midFilterType && midFilter) {
+        midFilter.type = value as BiquadFilterType;
+        updateQControlState(value, midQContainer, midQSlider);
+    } else if (target === highFilterType && highFilter) {
+        highFilter.type = value as BiquadFilterType;
+        updateQControlState(value, highQContainer, highQSlider);
     }
     
     updateStaticEqCurve();
@@ -533,6 +564,11 @@ function updateAllEqDisplays() {
     highQValue.textContent = parseFloat(highQSlider.value).toFixed(1);
 }
 
+function updateAllQControlsState() {
+    updateQControlState(lowFilterType.value, lowQContainer, lowQSlider);
+    updateQControlState(midFilterType.value, midQContainer, midQSlider);
+    updateQControlState(highFilterType.value, highQContainer, highQSlider);
+}
 
 // --- Initialization ---
 function main() {
@@ -553,11 +589,15 @@ function main() {
   lowQSlider.addEventListener('input', handleEqChange);
   midQSlider.addEventListener('input', handleEqChange);
   highQSlider.addEventListener('input', handleEqChange);
+  lowFilterType.addEventListener('input', handleEqChange);
+  midFilterType.addEventListener('input', handleEqChange);
+  highFilterType.addEventListener('input', handleEqChange);
 
 
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
   updateAllEqDisplays();
+  updateAllQControlsState();
   setLanguage(currentLang);
   updateSubmitButtonState(audioFiles); // Initial state
 }

@@ -47,3 +47,11 @@ export const highQSlider = document.getElementById('high-q') as HTMLInputElement
 export const lowQValue = document.getElementById('low-q-value') as HTMLSpanElement;
 export const midQValue = document.getElementById('mid-q-value') as HTMLSpanElement;
 export const highQValue = document.getElementById('high-q-value') as HTMLSpanElement;
+export const lowQContainer = document.getElementById('low-q-container') as HTMLDivElement;
+export const midQContainer = document.getElementById('mid-q-container') as HTMLDivElement;
+export const highQContainer = document.getElementById('high-q-container') as HTMLDivElement;
+
+
+export const lowFilterType = document.getElementById('low-filter-type') as HTMLSelectElement;
+export const midFilterType = document.getElementById('mid-filter-type') as HTMLSelectElement;
+export const highFilterType = document.getElementById('high-filter-type') as HTMLSelectElement;
