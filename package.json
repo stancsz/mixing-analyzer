@@ -12,10 +12,13 @@
     "@google/genai": "^0.7.0",
     "marked": "^15.0.7",
     "dompurify": "^3.0.6",
-    "chartjs-plugin-annotation": "^3.0.1",
-    "chart.js": "^4.5.0",
     "jspdf": "^2.5.1",
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "./ui-elements": "latest",
+    "./gemini": "latest",
+    "./i18n": "latest",
+    "./ui": "latest",
+    "./utils": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
