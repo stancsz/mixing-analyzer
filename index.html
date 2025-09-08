@@ -73,6 +73,13 @@
                         <div class="eq-header">
                             <h4 class="visualizer-subtitle" data-i18n-key="eqControlsTitle">3-Band Equalizer</h4>
                             <div class="header-buttons">
+                                <div class="eq-preset-group">
+                                    <label for="eq-presets-select" data-i18n-key="eqPresetsLabel">Presets</label>
+                                    <select id="eq-presets-select">
+                                        <option value="" data-i18n-key="presetDefaultOption" selected>Select Preset...</option>
+                                        <option value="suno-sibilance" data-i18n-key="presetSunoSibilance">Suno Sibilance</option>
+                                    </select>
+                                </div>
                                 <button id="eq-reset-button" class="reset-button" data-i18n-key="resetButton">Reset</button>
                                 <button id="download-processed-button" data-i18n-key="downloadProcessedButton" disabled>Download Processed</button>
                             </div>

@@ -21,7 +21,7 @@ import {
   midCompThreshold, midCompRatio, midCompAttack, midCompRelease, midCompMakeup, midCompThresholdValue,
   midCompRatioValue, midCompAttackValue, midCompReleaseValue, midCompMakeupValue, highCompThreshold,
   highCompRatio, highCompAttack, highCompRelease, highCompMakeup, highCompThresholdValue, highCompRatioValue,
-  highCompAttackValue, highCompReleaseValue, highCompMakeupValue, eqResetButton, compressorResetButton
+  highCompAttackValue, highCompReleaseValue, highCompMakeupValue, eqResetButton, compressorResetButton, eqPresetsSelect
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
@@ -67,7 +67,15 @@ let highMakeupGain: GainNode | null = null;
 let scrubTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg>`;
-const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z"/></svg>`;
+const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0 -26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z"/></svg>`;
+
+const eqPresets = {
+  'suno-sibilance': {
+    low: { type: 'lowshelf', gain: -12, freq: 60, q: 1 },
+    mid: { type: 'peaking', gain: -4, freq: 3500, q: 8.5 },
+    high: { type: 'peaking', gain: -8, freq: 7000, q: 4.0 },
+  }
+};
 
 /**
  * Converts a dB value to a linear gain multiplier.
@@ -667,7 +675,46 @@ function handleEqChange(event: Event) {
     else if (target === midFilterType && midFilter) { midFilter.type = value as BiquadFilterType; updateQControlState(value, midQContainer, midQSlider); }
     else if (target === highFilterType && highFilter) { highFilter.type = value as BiquadFilterType; updateQControlState(value, highQContainer, highQSlider); }
     
+    // Deselect preset if user manually changes a control
+    if (eqPresetsSelect.value !== '') {
+        eqPresetsSelect.value = '';
+    }
+
     updateAllEqDisplays();
+    updateStaticEqCurve();
+}
+
+function handleEqPresetChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    const presetName = target.value;
+    const preset = eqPresets[presetName as keyof typeof eqPresets];
+
+    if (!preset) {
+        return; // No preset selected or found
+    }
+
+    // Low Band
+    lowFilterType.value = preset.low.type;
+    lowGainSlider.value = String(preset.low.gain);
+    lowFreqInput.value = String(preset.low.freq);
+    lowQSlider.value = String(preset.low.q);
+
+    // Mid Band
+    midFilterType.value = preset.mid.type;
+    midGainSlider.value = String(preset.mid.gain);
+    midFreqInput.value = String(preset.mid.freq);
+    midQSlider.value = String(preset.mid.q);
+
+    // High Band
+    highFilterType.value = preset.high.type;
+    highGainSlider.value = String(preset.high.gain);
+    highFreqInput.value = String(preset.high.freq);
+    highQSlider.value = String(preset.high.q);
+    
+    // Apply all the changes to the audio nodes and UI
+    updateAllEqValues();
+    updateAllEqDisplays();
+    updateAllQControlsState();
     updateStaticEqCurve();
 }
 
@@ -687,7 +734,11 @@ function handleEqReset() {
         }
     });
 
+    // Reset preset dropdown
+    eqPresetsSelect.value = '';
+
     updateAllEqValues(); // Apply changes to audio nodes
+    updateAllEqDisplays(); // Explicitly update displays
     updateAllQControlsState(); // Update disabled state of Q sliders
     updateStaticEqCurve(); // Redraw the curve
 }
@@ -961,7 +1012,6 @@ function updateAllEqValues() {
     lowFilter.type = lowFilterType.value as BiquadFilterType;
     midFilter.type = midFilterType.value as BiquadFilterType;
     highFilter.type = highFilterType.value as BiquadFilterType;
-    updateAllEqDisplays();
 }
 
 function updateAllCompressorDisplays() {
@@ -1036,6 +1086,7 @@ function main() {
   const eqControls = [lowGainSlider, midGainSlider, highGainSlider, lowFreqInput, midFreqInput, highFreqInput, lowQSlider, midQSlider, highQSlider, lowFilterType, midFilterType, highFilterType];
   eqControls.forEach(control => control.addEventListener('input', handleEqChange));
   eqResetButton.addEventListener('click', handleEqReset);
+  eqPresetsSelect.addEventListener('change', handleEqPresetChange);
 
   // Compressor Listeners
   const compControls = [

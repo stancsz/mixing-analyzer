@@ -28,6 +28,7 @@ export const downloadProcessedButton = document.getElementById('download-process
 
 // EQ Controls
 export const eqResetButton = document.getElementById('eq-reset-button') as HTMLButtonElement;
+export const eqPresetsSelect = document.getElementById('eq-presets-select') as HTMLSelectElement;
 export const lowGainSlider = document.getElementById('low-gain') as HTMLInputElement;
 export const midGainSlider = document.getElementById('mid-gain') as HTMLInputElement;
 export const highGainSlider = document.getElementById('high-gain') as HTMLInputElement;
