@@ -25,6 +25,7 @@ export const progressBar = document.getElementById('progress-bar') as HTMLDivEle
 export const timelineContainer = document.getElementById('timeline-container') as HTMLDivElement;
 export const spectrogramCanvas = document.getElementById('spectrogram-canvas') as HTMLCanvasElement;
 export const eqCurveCanvas = document.getElementById('eq-curve-canvas') as HTMLCanvasElement;
+export const downloadProcessedButton = document.getElementById('download-processed-button') as HTMLButtonElement;
 
 // EQ Controls
 export const lowGainSlider = document.getElementById('low-gain') as HTMLInputElement;

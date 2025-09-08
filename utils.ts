@@ -9,7 +9,8 @@ const TRUNCATE_DURATION = 45; // seconds
 /**
  * Encodes an AudioBuffer into a WAV file Blob.
  */
-function encodeWav(audioBuffer: AudioBuffer): Blob {
+// FIX: Export the 'encodeWav' function so it can be imported in index.tsx.
+export function encodeWav(audioBuffer: AudioBuffer): Blob {
     const numberOfChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     const format = 1; // PCM

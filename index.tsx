@@ -14,12 +14,12 @@ import {
   optionSpectral, optionTruncate, playPauseButton, progressBar,
   resultText, spectrogramCanvas, submitButton, timelineContainer, visualizerPanel,
   lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue,
-  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer
+  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadProcessedButton
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
 import { renderAnalysis, updateSubmitButtonState } from './ui';
-import { fileToBase64, getAudioDuration, getMimeType, truncateAudio } from './utils';
+import { fileToBase64, getAudioDuration, getMimeType, truncateAudio, encodeWav } from './utils';
 import { drawEqCurve, drawSpectrogram } from './visualizer';
 
 // --- App State ---
@@ -87,6 +87,8 @@ function cleanupVisualizer() {
   startTime = 0;
   progressBar.style.width = '0%';
   playPauseButton.innerHTML = playIcon;
+  playPauseButton.disabled = true;
+  downloadProcessedButton.disabled = true;
 }
 
 function updateStaticEqCurve() {
@@ -155,6 +157,7 @@ async function setupAudio(file: File) {
 
   updateStaticEqCurve(); // Initial draw
   playPauseButton.disabled = false;
+  downloadProcessedButton.disabled = false;
 }
 
 function renderVisualizations() {
@@ -296,6 +299,81 @@ function handleTimelineScrub(event: MouseEvent) {
         playAudio();
         scrubTimeoutId = null;
     }, 200); // A 200ms delay feels natural.
+}
+
+async function handleDownloadProcessedAudio() {
+    if (!audioBuffer || !audioFiles.length) return;
+    
+    const t = translations[currentLang];
+    const originalText = downloadProcessedButton.textContent;
+    downloadProcessedButton.textContent = t.processingMessage || 'Processing...';
+    downloadProcessedButton.disabled = true;
+
+    try {
+        const offlineCtx = new OfflineAudioContext(
+            audioBuffer.numberOfChannels,
+            audioBuffer.length,
+            audioBuffer.sampleRate
+        );
+
+        // Create source
+        const source = offlineCtx.createBufferSource();
+        source.buffer = audioBuffer;
+
+        // Create filters with current settings from the UI
+        const offlineLowFilter = offlineCtx.createBiquadFilter();
+        offlineLowFilter.type = lowFilterType.value as BiquadFilterType;
+        offlineLowFilter.frequency.value = parseFloat(lowFreqInput.value);
+        offlineLowFilter.Q.value = parseFloat(lowQSlider.value);
+        offlineLowFilter.gain.value = parseFloat(lowGainSlider.value);
+
+        const offlineMidFilter = offlineCtx.createBiquadFilter();
+        offlineMidFilter.type = midFilterType.value as BiquadFilterType;
+        offlineMidFilter.frequency.value = parseFloat(midFreqInput.value);
+        offlineMidFilter.Q.value = parseFloat(midQSlider.value);
+        offlineMidFilter.gain.value = parseFloat(midGainSlider.value);
+
+        const offlineHighFilter = offlineCtx.createBiquadFilter();
+        offlineHighFilter.type = highFilterType.value as BiquadFilterType;
+        offlineHighFilter.frequency.value = parseFloat(highFreqInput.value);
+        offlineHighFilter.Q.value = parseFloat(highQSlider.value);
+        offlineHighFilter.gain.value = parseFloat(highGainSlider.value);
+        
+        // Connect the offline graph
+        source.connect(offlineLowFilter);
+        offlineLowFilter.connect(offlineMidFilter);
+        offlineMidFilter.connect(offlineHighFilter);
+        offlineHighFilter.connect(offlineCtx.destination);
+        
+        source.start(0);
+
+        const renderedBuffer = await offlineCtx.startRendering();
+        const wavBlob = encodeWav(renderedBuffer);
+
+        // Trigger download
+        const url = URL.createObjectURL(wavBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        
+        const originalName = audioFiles[0].name.split('.').slice(0, -1).join('.');
+        a.download = `${originalName || 'audio'}_processed.wav`;
+
+        document.body.appendChild(a);
+        a.click();
+
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error) {
+        console.error("Failed to process audio for download:", error);
+        alert("Sorry, there was an error processing the audio.");
+    } finally {
+        downloadProcessedButton.textContent = originalText;
+        if (audioBuffer) {
+            downloadProcessedButton.disabled = false;
+        }
+    }
 }
 
 function formatFrequency(hz: number): string {
@@ -626,6 +704,7 @@ function main() {
   fileInput.addEventListener('change', handleFileChange);
   submitButton.addEventListener('click', handleSubmit);
   downloadButton.addEventListener('click', handleDownload);
+  downloadProcessedButton.addEventListener('click', handleDownloadProcessedAudio);
   languageSelector.addEventListener('change', (e) => setLanguage((e.target as HTMLSelectElement).value));
   playPauseButton.addEventListener('click', handlePlayPause);
   timelineContainer.addEventListener('click', handleTimelineScrub);
@@ -647,6 +726,7 @@ function main() {
 
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
+  downloadProcessedButton.disabled = true;
   updateAllEqDisplays();
   updateAllQControlsState();
   setLanguage(currentLang);
