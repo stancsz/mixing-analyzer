@@ -40,6 +40,8 @@ let isPlaying = false;
 let animationFrameId: number | null = null;
 let startTime = 0;
 let startOffset = 0;
+// FIX: Use ReturnType<typeof setTimeout> to correctly type the timeout ID for both browser (number) and Node.js (Timeout object) environments.
+let scrubTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg>`;
 const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z"/></svg>`;
@@ -47,7 +49,12 @@ const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"
 // --- Visualizer Functions ---
 
 function cleanupVisualizer() {
+  if (scrubTimeoutId) {
+    clearTimeout(scrubTimeoutId);
+    scrubTimeoutId = null;
+  }
   if (sourceNode) {
+    sourceNode.onended = null;
     sourceNode.stop();
     sourceNode.disconnect();
     sourceNode = null;
@@ -90,7 +97,6 @@ function updateStaticEqCurve() {
   }
 }
 
-
 async function setupAudio(file: File) {
   cleanupVisualizer();
   audioContext = new AudioContext();
@@ -110,6 +116,9 @@ async function setupAudio(file: File) {
   analyserNodeEq.smoothingTimeConstant = 0.8;
   analyserNodeEq.minDecibels = -90;
   analyserNodeEq.maxDecibels = -10;
+  
+  analyserNodeSpectrogram = audioContext.createAnalyser();
+  analyserNodeSpectrogram.fftSize = 512;
 
   // Create and configure EQ filters
   lowFilter = audioContext.createBiquadFilter();
@@ -132,6 +141,15 @@ async function setupAudio(file: File) {
   
   eqFilters = [lowFilter, midFilter, highFilter];
   
+  // Connect the persistent audio graph. This is only done once.
+  lowFilter.connect(midFilter)
+    .connect(highFilter);
+
+  // Split the post-EQ signal to the destination and both analysers
+  highFilter.connect(audioContext.destination);
+  highFilter.connect(analyserNodeSpectrogram);
+  highFilter.connect(analyserNodeEq);
+
   const arrayBuffer = await file.arrayBuffer();
   audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
@@ -163,34 +181,40 @@ function renderVisualizations() {
 }
 
 function playAudio() {
-  if (!audioContext || !audioBuffer || isPlaying || !lowFilter || !midFilter || !highFilter || !analyserNodeEq) return;
+  if (!audioContext || !audioBuffer || isPlaying || !lowFilter) return;
 
   sourceNode = audioContext.createBufferSource();
   sourceNode.buffer = audioBuffer;
 
-  analyserNodeSpectrogram = audioContext.createAnalyser();
-  analyserNodeSpectrogram.fftSize = 512;
-  
-  // Connect the audio graph: source -> EQ -> analysers -> destination
-  sourceNode.connect(lowFilter)
-    .connect(midFilter)
-    .connect(highFilter);
-
-  // Split the post-EQ signal to the destination and both analysers
-  highFilter.connect(audioContext.destination);
-  highFilter.connect(analyserNodeSpectrogram);
-  highFilter.connect(analyserNodeEq);
-
+  // Connect the new source to the start of the persistent filter chain
+  sourceNode.connect(lowFilter);
 
   const offset = startOffset % audioBuffer.duration;
   sourceNode.start(0, offset);
   
+  // This handler is for when the track finishes playing naturally.
+  // Manual stops (pause, scrub) should set onended to null before stopping.
   sourceNode.onended = () => {
-      if (isPlaying) { // Only reset if it was playing and ended naturally
-          pauseAudio();
-          startOffset = 0;
-          progressBar.style.width = '0%';
+      if (!isPlaying) return; 
+
+      // Reset state for the next play
+      isPlaying = false;
+      startOffset = 0;
+      if (sourceNode) {
+          sourceNode.disconnect();
+          sourceNode = null;
       }
+      
+      // Update UI
+      playPauseButton.innerHTML = playIcon;
+      progressBar.style.width = '0%';
+      
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
+      updateStaticEqCurve();
   };
 
   startTime = audioContext.currentTime;
@@ -200,16 +224,24 @@ function playAudio() {
 }
 
 function pauseAudio() {
-  if (!sourceNode || !audioContext || !isPlaying) return;
-  sourceNode.stop();
-  startOffset += audioContext.currentTime - startTime;
+  if (!isPlaying || !sourceNode || !audioContext) return;
+
+  // Set state before stopping to prevent onended handler issues
   isPlaying = false;
+  startOffset += audioContext.currentTime - startTime;
+  
+  // Clean up the old source node
+  sourceNode.onended = null;
+  sourceNode.stop();
+  sourceNode.disconnect();
+  sourceNode = null;
+  
   playPauseButton.innerHTML = playIcon;
+
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
     animationFrameId = null;
   }
-  // Redraw the static curve when pausing
   updateStaticEqCurve();
 }
 
@@ -225,6 +257,11 @@ function handlePlayPause() {
 
 function handleTimelineScrub(event: MouseEvent) {
     if (!audioBuffer || !audioContext) return;
+
+    // Clear any pending scrub-to-play action
+    if (scrubTimeoutId) {
+        clearTimeout(scrubTimeoutId);
+    }
     
     const timeline = timelineContainer;
     const rect = timeline.getBoundingClientRect();
@@ -232,19 +269,33 @@ function handleTimelineScrub(event: MouseEvent) {
     const clickRatio = Math.max(0, Math.min(1, offsetX / timeline.clientWidth));
     
     const newTime = clickRatio * audioBuffer.duration;
-    startOffset = newTime;
     
-    progressBar.style.width = `${clickRatio * 100}%`;
-
-    if (isPlaying) {
-        if (sourceNode) {
-            sourceNode.onended = null;
-            sourceNode.stop();
-            sourceNode.disconnect();
-            sourceNode = null;
-        }
-        playAudio();
+    // Stop any current playback.
+    // We can't use pauseAudio() as it modifies startOffset based on play time.
+    if (isPlaying && sourceNode) {
+        sourceNode.onended = null; // Prevent onended handler from firing
+        sourceNode.stop();
+        sourceNode.disconnect();
+        sourceNode = null;
     }
+    
+    // Update state to reflect the pause and the new time.
+    isPlaying = false;
+    startOffset = newTime;
+    progressBar.style.width = `${clickRatio * 100}%`;
+    playPauseButton.innerHTML = playIcon;
+
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    updateStaticEqCurve(); // Show the static EQ curve while paused.
+
+    // Schedule playback to resume from the new position.
+    scrubTimeoutId = setTimeout(() => {
+        playAudio();
+        scrubTimeoutId = null;
+    }, 200); // A 200ms delay feels natural.
 }
 
 function formatFrequency(hz: number): string {
