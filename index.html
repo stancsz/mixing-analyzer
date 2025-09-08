@@ -176,6 +176,129 @@
                         </div>
                     </div>
                 </div>
+                <details class="multiband-compressor-section">
+                    <summary>
+                        <h4 class="visualizer-subtitle" data-i18n-key="compressorTitle">Multiband Compressor</h4>
+                    </summary>
+                    <div class="compressor-controls-container">
+                        <div class="compressor-global-controls">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="compressor-enable">
+                                <label for="compressor-enable" data-i18n-key="compressorEnable">Enable</label>
+                            </div>
+                            <div class="crossover-controls">
+                                <div class="eq-slider">
+                                    <label for="low-mid-crossover" data-i18n-key="compressorLowMidCrossover">Low/Mid Crossover</label>
+                                    <input type="range" id="low-mid-crossover" min="50" max="1000" value="250" step="1">
+                                    <span id="low-mid-crossover-value" class="gain-value">250 Hz</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-high-crossover" data-i18n-key="compressorMidHighCrossover">Mid/High Crossover</label>
+                                    <input type="range" id="mid-high-crossover" min="1000" max="10000" value="4000" step="10">
+                                    <span id="mid-high-crossover-value" class="gain-value">4.0 kHz</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="compressor-bands">
+                            <!-- Low Band -->
+                            <div class="compressor-band">
+                                <h5><span data-i18n-key="eqLowLabel">Low Band</span></h5>
+                                <div class="gr-meter-container">
+                                    <div id="low-gr-meter" class="gr-meter-bar"></div>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-comp-threshold" data-i18n-key="compressorThreshold">Threshold</label>
+                                    <input type="range" id="low-comp-threshold" min="-100" max="0" value="-24" step="1">
+                                    <span id="low-comp-threshold-value" class="gain-value">-24 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-comp-ratio" data-i18n-key="compressorRatio">Ratio</label>
+                                    <input type="range" id="low-comp-ratio" min="1" max="20" value="4" step="0.1">
+                                    <span id="low-comp-ratio-value" class="gain-value">4.0:1</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-comp-attack" data-i18n-key="compressorAttack">Attack</label>
+                                    <input type="range" id="low-comp-attack" min="0" max="1" value="0.01" step="0.001">
+                                    <span id="low-comp-attack-value" class="gain-value">10 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-comp-release" data-i18n-key="compressorRelease">Release</label>
+                                    <input type="range" id="low-comp-release" min="0.01" max="1" value="0.3" step="0.01">
+                                    <span id="low-comp-release-value" class="gain-value">300 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="low-comp-makeup" data-i18n-key="compressorMakeup">Makeup Gain</label>
+                                    <input type="range" id="low-comp-makeup" min="0" max="24" value="0" step="1">
+                                    <span id="low-comp-makeup-value" class="gain-value">0 dB</span>
+                                </div>
+                            </div>
+                            <!-- Mid Band -->
+                            <div class="compressor-band">
+                                <h5><span data-i18n-key="eqMidLabel">Mid Band</span></h5>
+                                <div class="gr-meter-container">
+                                    <div id="mid-gr-meter" class="gr-meter-bar"></div>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-comp-threshold" data-i18n-key="compressorThreshold">Threshold</label>
+                                    <input type="range" id="mid-comp-threshold" min="-100" max="0" value="-24" step="1">
+                                    <span id="mid-comp-threshold-value" class="gain-value">-24 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-comp-ratio" data-i18n-key="compressorRatio">Ratio</label>
+                                    <input type="range" id="mid-comp-ratio" min="1" max="20" value="3" step="0.1">
+                                    <span id="mid-comp-ratio-value" class="gain-value">3.0:1</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-comp-attack" data-i18n-key="compressorAttack">Attack</label>
+                                    <input type="range" id="mid-comp-attack" min="0" max="1" value="0.005" step="0.001">
+                                    <span id="mid-comp-attack-value" class="gain-value">5 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-comp-release" data-i18n-key="compressorRelease">Release</label>
+                                    <input type="range" id="mid-comp-release" min="0.01" max="1" value="0.2" step="0.01">
+                                    <span id="mid-comp-release-value" class="gain-value">200 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="mid-comp-makeup" data-i18n-key="compressorMakeup">Makeup Gain</label>
+                                    <input type="range" id="mid-comp-makeup" min="0" max="24" value="0" step="1">
+                                    <span id="mid-comp-makeup-value" class="gain-value">0 dB</span>
+                                </div>
+                            </div>
+                            <!-- High Band -->
+                            <div class="compressor-band">
+                                <h5><span data-i18n-key="eqHighLabel">High Band</span></h5>
+                                <div class="gr-meter-container">
+                                    <div id="high-gr-meter" class="gr-meter-bar"></div>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-comp-threshold" data-i18n-key="compressorThreshold">Threshold</label>
+                                    <input type="range" id="high-comp-threshold" min="-100" max="0" value="-24" step="1">
+                                    <span id="high-comp-threshold-value" class="gain-value">-24 dB</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-comp-ratio" data-i18n-key="compressorRatio">Ratio</label>
+                                    <input type="range" id="high-comp-ratio" min="1" max="20" value="5" step="0.1">
+                                    <span id="high-comp-ratio-value" class="gain-value">5.0:1</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-comp-attack" data-i18n-key="compressorAttack">Attack</label>
+                                    <input type="range" id="high-comp-attack" min="0" max="1" value="0.001" step="0.001">
+                                    <span id="high-comp-attack-value" class="gain-value">1 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-comp-release" data-i18n-key="compressorRelease">Release</label>
+                                    <input type="range" id="high-comp-release" min="0.01" max="1" value="0.1" step="0.01">
+                                    <span id="high-comp-release-value" class="gain-value">100 ms</span>
+                                </div>
+                                <div class="eq-slider">
+                                    <label for="high-comp-makeup" data-i18n-key="compressorMakeup">Makeup Gain</label>
+                                    <input type="range" id="high-comp-makeup" min="0" max="24" value="0" step="1">
+                                    <span id="high-comp-makeup-value" class="gain-value">0 dB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <fieldset class="analysis-options">

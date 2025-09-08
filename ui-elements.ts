@@ -56,3 +56,47 @@ export const highQContainer = document.getElementById('high-q-container') as HTM
 export const lowFilterType = document.getElementById('low-filter-type') as HTMLSelectElement;
 export const midFilterType = document.getElementById('mid-filter-type') as HTMLSelectElement;
 export const highFilterType = document.getElementById('high-filter-type') as HTMLSelectElement;
+
+// Compressor Controls
+export const compressorEnable = document.getElementById('compressor-enable') as HTMLInputElement;
+export const lowMidCrossover = document.getElementById('low-mid-crossover') as HTMLInputElement;
+export const midHighCrossover = document.getElementById('mid-high-crossover') as HTMLInputElement;
+export const lowMidCrossoverValue = document.getElementById('low-mid-crossover-value') as HTMLSpanElement;
+export const midHighCrossoverValue = document.getElementById('mid-high-crossover-value') as HTMLSpanElement;
+
+export const lowGrMeter = document.getElementById('low-gr-meter') as HTMLDivElement;
+export const midGrMeter = document.getElementById('mid-gr-meter') as HTMLDivElement;
+export const highGrMeter = document.getElementById('high-gr-meter') as HTMLDivElement;
+
+export const lowCompThreshold = document.getElementById('low-comp-threshold') as HTMLInputElement;
+export const lowCompRatio = document.getElementById('low-comp-ratio') as HTMLInputElement;
+export const lowCompAttack = document.getElementById('low-comp-attack') as HTMLInputElement;
+export const lowCompRelease = document.getElementById('low-comp-release') as HTMLInputElement;
+export const lowCompMakeup = document.getElementById('low-comp-makeup') as HTMLInputElement;
+export const lowCompThresholdValue = document.getElementById('low-comp-threshold-value') as HTMLSpanElement;
+export const lowCompRatioValue = document.getElementById('low-comp-ratio-value') as HTMLSpanElement;
+export const lowCompAttackValue = document.getElementById('low-comp-attack-value') as HTMLSpanElement;
+export const lowCompReleaseValue = document.getElementById('low-comp-release-value') as HTMLSpanElement;
+export const lowCompMakeupValue = document.getElementById('low-comp-makeup-value') as HTMLSpanElement;
+
+export const midCompThreshold = document.getElementById('mid-comp-threshold') as HTMLInputElement;
+export const midCompRatio = document.getElementById('mid-comp-ratio') as HTMLInputElement;
+export const midCompAttack = document.getElementById('mid-comp-attack') as HTMLInputElement;
+export const midCompRelease = document.getElementById('mid-comp-release') as HTMLInputElement;
+export const midCompMakeup = document.getElementById('mid-comp-makeup') as HTMLInputElement;
+export const midCompThresholdValue = document.getElementById('mid-comp-threshold-value') as HTMLSpanElement;
+export const midCompRatioValue = document.getElementById('mid-comp-ratio-value') as HTMLSpanElement;
+export const midCompAttackValue = document.getElementById('mid-comp-attack-value') as HTMLSpanElement;
+export const midCompReleaseValue = document.getElementById('mid-comp-release-value') as HTMLSpanElement;
+export const midCompMakeupValue = document.getElementById('mid-comp-makeup-value') as HTMLSpanElement;
+
+export const highCompThreshold = document.getElementById('high-comp-threshold') as HTMLInputElement;
+export const highCompRatio = document.getElementById('high-comp-ratio') as HTMLInputElement;
+export const highCompAttack = document.getElementById('high-comp-attack') as HTMLInputElement;
+export const highCompRelease = document.getElementById('high-comp-release') as HTMLInputElement;
+export const highCompMakeup = document.getElementById('high-comp-makeup') as HTMLInputElement;
+export const highCompThresholdValue = document.getElementById('high-comp-threshold-value') as HTMLSpanElement;
+export const highCompRatioValue = document.getElementById('high-comp-ratio-value') as HTMLSpanElement;
+export const highCompAttackValue = document.getElementById('high-comp-attack-value') as HTMLSpanElement;
+export const highCompReleaseValue = document.getElementById('high-comp-release-value') as HTMLSpanElement;
+export const highCompMakeupValue = document.getElementById('high-comp-makeup-value') as HTMLSpanElement;

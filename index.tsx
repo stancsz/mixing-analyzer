@@ -14,7 +14,14 @@ import {
   optionSpectral, optionTruncate, playPauseButton, progressBar,
   resultText, spectrogramCanvas, submitButton, timelineContainer, visualizerPanel,
   lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue,
-  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadProcessedButton
+  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadProcessedButton,
+  compressorEnable, lowMidCrossover, midHighCrossover, lowMidCrossoverValue, midHighCrossoverValue,
+  lowGrMeter, midGrMeter, highGrMeter, lowCompThreshold, lowCompRatio, lowCompAttack, lowCompRelease, lowCompMakeup,
+  lowCompThresholdValue, lowCompRatioValue, lowCompAttackValue, lowCompReleaseValue, lowCompMakeupValue,
+  midCompThreshold, midCompRatio, midCompAttack, midCompRelease, midCompMakeup, midCompThresholdValue,
+  midCompRatioValue, midCompAttackValue, midCompReleaseValue, midCompMakeupValue, highCompThreshold,
+  highCompRatio, highCompAttack, highCompRelease, highCompMakeup, highCompThresholdValue, highCompRatioValue,
+  highCompAttackValue, highCompReleaseValue, highCompMakeupValue
 } from './ui-elements';
 import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
@@ -32,19 +39,41 @@ let audioBuffer: AudioBuffer | null = null;
 let sourceNode: AudioBufferSourceNode | null = null;
 let analyserNodeSpectrogram: AnalyserNode | null = null;
 let analyserNodeEq: AnalyserNode | null = null;
-let lowFilter: BiquadFilterNode | null = null;
-let midFilter: BiquadFilterNode | null = null;
-let highFilter: BiquadFilterNode | null = null;
-let eqFilters: BiquadFilterNode[] = [];
 let isPlaying = false;
 let animationFrameId: number | null = null;
 let startTime = 0;
 let startOffset = 0;
+// EQ Nodes
+let lowFilter: BiquadFilterNode | null = null;
+let midFilter: BiquadFilterNode | null = null;
+let highFilter: BiquadFilterNode | null = null;
+let eqFilters: BiquadFilterNode[] = [];
+// Compressor Nodes
+let compressorWetGain: GainNode | null = null;
+let compressorDryGain: GainNode | null = null;
+let compressorOutputNode: GainNode | null = null;
+let lowSplitFilter: BiquadFilterNode | null = null;
+let midSplitFilter: BiquadFilterNode | null = null;
+let highSplitFilter: BiquadFilterNode | null = null;
+let lowCompressor: DynamicsCompressorNode | null = null;
+let midCompressor: DynamicsCompressorNode | null = null;
+let highCompressor: DynamicsCompressorNode | null = null;
+let lowMakeupGain: GainNode | null = null;
+let midMakeupGain: GainNode | null = null;
+let highMakeupGain: GainNode | null = null;
+
 // FIX: Use ReturnType<typeof setTimeout> to correctly type the timeout ID for both browser (number) and Node.js (Timeout object) environments.
 let scrubTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg>`;
 const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z"/></svg>`;
+
+/**
+ * Converts a dB value to a linear gain multiplier.
+ */
+function dbToLinear(db: number): number {
+    return Math.pow(10, db / 20);
+}
 
 // --- Visualizer Functions ---
 
@@ -67,11 +96,20 @@ function cleanupVisualizer() {
     analyserNodeEq.disconnect();
     analyserNodeEq = null;
   }
-  if (lowFilter) lowFilter.disconnect();
-  if (midFilter) midFilter.disconnect();
-  if (highFilter) highFilter.disconnect();
+  
+  // Disconnect all EQ and Compressor nodes
+  [
+    lowFilter, midFilter, highFilter, compressorWetGain, compressorDryGain, compressorOutputNode,
+    lowSplitFilter, midSplitFilter, highSplitFilter, lowCompressor, midCompressor,
+    highCompressor, lowMakeupGain, midMakeupGain, highMakeupGain
+  ].forEach(node => node?.disconnect());
+
   lowFilter = midFilter = highFilter = null;
+  compressorWetGain = compressorDryGain = compressorOutputNode = lowSplitFilter = midSplitFilter = highSplitFilter = null;
+  lowCompressor = midCompressor = highCompressor = null;
+  lowMakeupGain = midMakeupGain = highMakeupGain = null;
   eqFilters = [];
+
 
   if (audioContext) {
     audioContext.close();
@@ -99,6 +137,46 @@ function updateStaticEqCurve() {
   }
 }
 
+function createCompressorChain(context: AudioContext | OfflineAudioContext) {
+    // Crossover filters
+    const lowMidFreq = parseFloat(lowMidCrossover.value);
+    const midHighFreq = parseFloat(midHighCrossover.value);
+
+    const newLowSplitFilter = context.createBiquadFilter();
+    newLowSplitFilter.type = 'lowpass';
+    newLowSplitFilter.frequency.value = lowMidFreq;
+
+    const newMidSplitFilter = context.createBiquadFilter();
+    newMidSplitFilter.type = 'highpass';
+    newMidSplitFilter.frequency.value = lowMidFreq;
+
+    const newHighSplitFilter = context.createBiquadFilter();
+    newHighSplitFilter.type = 'highpass';
+    newHighSplitFilter.frequency.value = midHighFreq;
+
+    // Compressors
+    const newLowCompressor = context.createDynamicsCompressor();
+    const newMidCompressor = context.createDynamicsCompressor();
+    const newHighCompressor = context.createDynamicsCompressor();
+    
+    // Makeup Gain
+    const newLowMakeupGain = context.createGain();
+    const newMidMakeupGain = context.createGain();
+    const newHighMakeupGain = context.createGain();
+
+    // Connect the bands
+    newLowSplitFilter.connect(newLowCompressor).connect(newLowMakeupGain);
+    newMidSplitFilter.connect(newHighSplitFilter).connect(newMidCompressor).connect(newMidMakeupGain);
+    newHighSplitFilter.connect(newHighCompressor).connect(newHighMakeupGain);
+
+    return {
+        lowSplitFilter: newLowSplitFilter, midSplitFilter: newMidSplitFilter, highSplitFilter: newHighSplitFilter,
+        lowCompressor: newLowCompressor, midCompressor: newMidCompressor, highCompressor: newHighCompressor,
+        lowMakeupGain: newLowMakeupGain, midMakeupGain: newMidMakeupGain, highMakeupGain: newHighMakeupGain
+    };
+}
+
+
 async function setupAudio(file: File) {
   cleanupVisualizer();
   audioContext = new AudioContext();
@@ -121,36 +199,57 @@ async function setupAudio(file: File) {
   
   analyserNodeSpectrogram = audioContext.createAnalyser();
   analyserNodeSpectrogram.fftSize = 512;
+  
+  // --- Create Compressor Chain ---
+  const compNodes = createCompressorChain(audioContext);
+  lowSplitFilter = compNodes.lowSplitFilter;
+  midSplitFilter = compNodes.midSplitFilter;
+  highSplitFilter = compNodes.highSplitFilter;
+  lowCompressor = compNodes.lowCompressor;
+  midCompressor = compNodes.midCompressor;
+  highCompressor = compNodes.highCompressor;
+  lowMakeupGain = compNodes.lowMakeupGain;
+  midMakeupGain = compNodes.midMakeupGain;
+  highMakeupGain = compNodes.highMakeupGain;
 
-  // Create and configure EQ filters
+  compressorWetGain = audioContext.createGain();
+  compressorDryGain = audioContext.createGain();
+  compressorOutputNode = audioContext.createGain();
+  
+  // Connect wet compressor chain inputs
+  compressorWetGain.connect(lowSplitFilter);
+  compressorWetGain.connect(midSplitFilter);
+  
+  // Connect compressor chain outputs to the summing bus
+  lowMakeupGain.connect(compressorOutputNode);
+  midMakeupGain.connect(compressorOutputNode);
+  highMakeupGain.connect(compressorOutputNode);
+
+
+  // --- Create EQ Chain ---
   lowFilter = audioContext.createBiquadFilter();
-  lowFilter.type = lowFilterType.value as BiquadFilterType;
-  lowFilter.frequency.value = parseFloat(lowFreqInput.value);
-  lowFilter.Q.value = parseFloat(lowQSlider.value);
-  lowFilter.gain.value = parseFloat(lowGainSlider.value);
-
   midFilter = audioContext.createBiquadFilter();
-  midFilter.type = midFilterType.value as BiquadFilterType;
-  midFilter.frequency.value = parseFloat(midFreqInput.value);
-  midFilter.Q.value = parseFloat(midQSlider.value);
-  midFilter.gain.value = parseFloat(midGainSlider.value);
-  
   highFilter = audioContext.createBiquadFilter();
-  highFilter.type = highFilterType.value as BiquadFilterType;
-  highFilter.frequency.value = parseFloat(highFreqInput.value);
-  highFilter.Q.value = parseFloat(highQSlider.value);
-  highFilter.gain.value = parseFloat(highGainSlider.value);
-  
   eqFilters = [lowFilter, midFilter, highFilter];
   
-  // Connect the persistent audio graph. This is only done once.
+  // --- Master Audio Graph Connection ---
+  // Both the wet (processed) and dry (bypassed) signals connect to the EQ chain.
+  compressorOutputNode.connect(lowFilter);
+  compressorDryGain.connect(lowFilter);
+  
+  // The EQ chain itself
   lowFilter.connect(midFilter)
     .connect(highFilter);
 
-  // Split the post-EQ signal to the destination and both analysers
+  // Post-EQ signal splits to destination and analysers
   highFilter.connect(audioContext.destination);
   highFilter.connect(analyserNodeSpectrogram);
   highFilter.connect(analyserNodeEq);
+
+  // Initialize all values from UI
+  updateAllEqValues();
+  updateAllCompressorValues();
+  updateCompressorBypass();
 
   const arrayBuffer = await file.arrayBuffer();
   audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -173,6 +272,17 @@ function renderVisualizations() {
   if (eqCtx) {
       drawEqCurve(eqFilters, eqCtx, eqCurveCanvas.width, eqCurveCanvas.height, audioContext.sampleRate, analyserNodeEq);
   }
+  
+  if (lowCompressor && midCompressor && highCompressor) {
+      const lowRed = lowCompressor.reduction;
+      const midRed = midCompressor.reduction;
+      const highRed = highCompressor.reduction;
+
+      // Max reduction displayed on meter is -30dB
+      lowGrMeter.style.height = `${Math.min(100, (lowRed / -30) * 100)}%`;
+      midGrMeter.style.height = `${Math.min(100, (midRed / -30) * 100)}%`;
+      highGrMeter.style.height = `${Math.min(100, (highRed / -30) * 100)}%`;
+  }
 
   const elapsedTime = audioContext.currentTime - startTime + startOffset;
   const progress = (elapsedTime / audioBuffer.duration) * 100;
@@ -184,13 +294,15 @@ function renderVisualizations() {
 }
 
 function playAudio() {
-  if (!audioContext || !audioBuffer || isPlaying || !lowFilter) return;
+  if (!audioContext || !audioBuffer || isPlaying || !compressorWetGain || !compressorDryGain) return;
 
   sourceNode = audioContext.createBufferSource();
   sourceNode.buffer = audioBuffer;
 
-  // Connect the new source to the start of the persistent filter chain
-  sourceNode.connect(lowFilter);
+  // Connect the new source to the start of BOTH the wet and dry processing chains.
+  // The bypass logic will control which path has its gain up.
+  sourceNode.connect(compressorWetGain);
+  sourceNode.connect(compressorDryGain);
 
   const offset = startOffset % audioBuffer.duration;
   sourceNode.start(0, offset);
@@ -316,52 +428,81 @@ async function handleDownloadProcessedAudio() {
             audioBuffer.sampleRate
         );
 
-        // Create source
         const source = offlineCtx.createBufferSource();
         source.buffer = audioBuffer;
 
-        // Create filters with current settings from the UI
+        // --- Recreate EQ Chain for Offline Context ---
         const offlineLowFilter = offlineCtx.createBiquadFilter();
+        const offlineMidFilter = offlineCtx.createBiquadFilter();
+        const offlineHighFilter = offlineCtx.createBiquadFilter();
+
+        // Connect EQ chain
+        offlineLowFilter.connect(offlineMidFilter).connect(offlineHighFilter).connect(offlineCtx.destination);
+        
+        // --- Apply all EQ settings ---
         offlineLowFilter.type = lowFilterType.value as BiquadFilterType;
         offlineLowFilter.frequency.value = parseFloat(lowFreqInput.value);
         offlineLowFilter.Q.value = parseFloat(lowQSlider.value);
         offlineLowFilter.gain.value = parseFloat(lowGainSlider.value);
-
-        const offlineMidFilter = offlineCtx.createBiquadFilter();
         offlineMidFilter.type = midFilterType.value as BiquadFilterType;
         offlineMidFilter.frequency.value = parseFloat(midFreqInput.value);
         offlineMidFilter.Q.value = parseFloat(midQSlider.value);
         offlineMidFilter.gain.value = parseFloat(midGainSlider.value);
-
-        const offlineHighFilter = offlineCtx.createBiquadFilter();
         offlineHighFilter.type = highFilterType.value as BiquadFilterType;
         offlineHighFilter.frequency.value = parseFloat(highFreqInput.value);
         offlineHighFilter.Q.value = parseFloat(highQSlider.value);
         offlineHighFilter.gain.value = parseFloat(highGainSlider.value);
-        
-        // Connect the offline graph
-        source.connect(offlineLowFilter);
-        offlineLowFilter.connect(offlineMidFilter);
-        offlineMidFilter.connect(offlineHighFilter);
-        offlineHighFilter.connect(offlineCtx.destination);
-        
+
+
+        if (compressorEnable.checked) {
+            // --- WET PATH: Recreate Compressor Chain ---
+            const compNodes = createCompressorChain(offlineCtx);
+            const offlineCompOutput = offlineCtx.createGain();
+
+            // Connect offline compressor chain to its summing bus
+            compNodes.lowMakeupGain.connect(offlineCompOutput);
+            compNodes.midMakeupGain.connect(offlineCompOutput);
+            compNodes.highMakeupGain.connect(offlineCompOutput);
+
+            // Connect source to compressor inputs, and compressor output to EQ input
+            source.connect(compNodes.lowSplitFilter);
+            source.connect(compNodes.midSplitFilter);
+            offlineCompOutput.connect(offlineLowFilter);
+
+            // --- Apply all Compressor settings ---
+            const comps = [compNodes.lowCompressor, compNodes.midCompressor, compNodes.highCompressor];
+            const thresholds = [lowCompThreshold.value, midCompThreshold.value, highCompThreshold.value];
+            const ratios = [lowCompRatio.value, midCompRatio.value, highCompRatio.value];
+            const attacks = [lowCompAttack.value, midCompAttack.value, highCompAttack.value];
+            const releases = [lowCompRelease.value, midCompRelease.value, highCompRelease.value];
+            const makeups = [lowCompMakeup.value, midCompMakeup.value, highCompMakeup.value];
+            const makeupNodes = [compNodes.lowMakeupGain, compNodes.midMakeupGain, compNodes.highMakeupGain];
+
+            for (let i = 0; i < 3; i++) {
+                comps[i].threshold.value = parseFloat(thresholds[i]);
+                comps[i].ratio.value = parseFloat(ratios[i]);
+                comps[i].attack.value = parseFloat(attacks[i]);
+                comps[i].release.value = parseFloat(releases[i]);
+                makeupNodes[i].gain.value = dbToLinear(parseFloat(makeups[i]));
+            }
+        } else {
+            // --- DRY PATH: Bypass compressor, connect source directly to EQ ---
+            source.connect(offlineLowFilter);
+        }
+
         source.start(0);
 
         const renderedBuffer = await offlineCtx.startRendering();
         const wavBlob = encodeWav(renderedBuffer);
 
-        // Trigger download
         const url = URL.createObjectURL(wavBlob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        
         const originalName = audioFiles[0].name.split('.').slice(0, -1).join('.');
         a.download = `${originalName || 'audio'}_processed.wav`;
-
         document.body.appendChild(a);
         a.click();
-
         window.URL.revokeObjectURL(url);
         a.remove();
 
@@ -396,61 +537,84 @@ function updateQControlState(type: string, qContainer: HTMLDivElement, qSlider: 
     }
 }
 
+function updateCompressorBypass() {
+    if (!compressorWetGain || !compressorDryGain || !audioContext) return;
+    
+    const wetGain = compressorEnable.checked ? 1 : 0;
+    const dryGain = compressorEnable.checked ? 0 : 1;
+    const now = audioContext.currentTime;
+
+    // Use setValueAtTime for sample-accurate changes to avoid clicks.
+    compressorWetGain.gain.setValueAtTime(wetGain, now);
+    compressorDryGain.gain.setValueAtTime(dryGain, now);
+}
+
+function handleCompressorChange(event: Event) {
+    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midSplitFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
+    
+    const target = event.target as HTMLInputElement;
+    const value = parseFloat(target.value);
+    
+    // Enable
+    if (target === compressorEnable) {
+        updateCompressorBypass();
+    }
+    // Crossovers
+    else if (target === lowMidCrossover) {
+        lowSplitFilter.frequency.value = value;
+        midSplitFilter.frequency.value = value;
+        lowMidCrossoverValue.textContent = formatFrequency(value);
+    } else if (target === midHighCrossover) {
+        highSplitFilter.frequency.value = value;
+        // mid band's lowpass is determined by this
+        // This simplified model has mid being highpass(low) -> rest. highpass(high) is the high band.
+        // A more correct crossover is needed for a sharp mid band.
+        // The current wiring is: mid = highpass(low) AND NOT highpass(high). Which is done by `midSplit.connect(highSplit)`.
+        midHighCrossoverValue.textContent = formatFrequency(value);
+    }
+    // Low Band
+    else if (target === lowCompThreshold) { lowCompressor.threshold.value = value; lowCompThresholdValue.textContent = `${value} dB`; }
+    else if (target === lowCompRatio) { lowCompressor.ratio.value = value; lowCompRatioValue.textContent = `${value.toFixed(1)}:1`; }
+    else if (target === lowCompAttack) { lowCompressor.attack.value = value; lowCompAttackValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === lowCompRelease) { lowCompressor.release.value = value; lowCompReleaseValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === lowCompMakeup) { lowMakeupGain.gain.value = dbToLinear(value); lowCompMakeupValue.textContent = `${value} dB`; }
+    // Mid Band
+    else if (target === midCompThreshold) { midCompressor.threshold.value = value; midCompThresholdValue.textContent = `${value} dB`; }
+    else if (target === midCompRatio) { midCompressor.ratio.value = value; midCompRatioValue.textContent = `${value.toFixed(1)}:1`; }
+    else if (target === midCompAttack) { midCompressor.attack.value = value; midCompAttackValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === midCompRelease) { midCompressor.release.value = value; midCompReleaseValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === midCompMakeup) { midMakeupGain.gain.value = dbToLinear(value); midCompMakeupValue.textContent = `${value} dB`; }
+    // High Band
+    else if (target === highCompThreshold) { highCompressor.threshold.value = value; highCompThresholdValue.textContent = `${value} dB`; }
+    else if (target === highCompRatio) { highCompressor.ratio.value = value; highCompRatioValue.textContent = `${value.toFixed(1)}:1`; }
+    else if (target === highCompAttack) { highCompressor.attack.value = value; highCompAttackValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === highCompRelease) { highCompressor.release.value = value; highCompReleaseValue.textContent = `${(value * 1000).toFixed(0)} ms`; }
+    else if (target === highCompMakeup) { highMakeupGain.gain.value = dbToLinear(value); highCompMakeupValue.textContent = `${value} dB`; }
+}
+
+
 function handleEqChange(event: Event) {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const value = target.value;
 
     // Gain Sliders
-    if (target === lowGainSlider && lowFilter) {
-        lowFilter.gain.value = parseFloat(value);
-        lowGainValue.textContent = `${value} dB`;
-    } else if (target === midGainSlider && midFilter) {
-        midFilter.gain.value = parseFloat(value);
-        midGainValue.textContent = `${value} dB`;
-    } else if (target === highGainSlider && highFilter) {
-        highFilter.gain.value = parseFloat(value);
-        highGainValue.textContent = `${value} dB`;
-    }
+    if (target === lowGainSlider && lowFilter) lowFilter.gain.value = parseFloat(value);
+    else if (target === midGainSlider && midFilter) midFilter.gain.value = parseFloat(value);
+    else if (target === highGainSlider && highFilter) highFilter.gain.value = parseFloat(value);
     // Frequency Sliders
-    else if (target === lowFreqInput && lowFilter) {
-        const freq = parseFloat(value);
-        lowFilter.frequency.value = freq;
-        lowFreqValue.textContent = formatFrequency(freq);
-    } else if (target === midFreqInput && midFilter) {
-        const freq = parseFloat(value);
-        midFilter.frequency.value = freq;
-        midFreqValue.textContent = formatFrequency(freq);
-    } else if (target === highFreqInput && highFilter) {
-        const freq = parseFloat(value);
-        highFilter.frequency.value = freq;
-        highFreqValue.textContent = formatFrequency(freq);
-    }
+    else if (target === lowFreqInput && lowFilter) lowFilter.frequency.value = parseFloat(value);
+    else if (target === midFreqInput && midFilter) midFilter.frequency.value = parseFloat(value);
+    else if (target === highFreqInput && highFilter) highFilter.frequency.value = parseFloat(value);
     // Q Sliders
-    else if (target === lowQSlider && lowFilter) {
-        const q = parseFloat(value);
-        lowFilter.Q.value = q;
-        lowQValue.textContent = q.toFixed(1);
-    } else if (target === midQSlider && midFilter) {
-        const q = parseFloat(value);
-        midFilter.Q.value = q;
-        midQValue.textContent = q.toFixed(1);
-    } else if (target === highQSlider && highFilter) {
-        const q = parseFloat(value);
-        highFilter.Q.value = q;
-        highQValue.textContent = q.toFixed(1);
-    }
+    else if (target === lowQSlider && lowFilter) lowFilter.Q.value = parseFloat(value);
+    else if (target === midQSlider && midFilter) midFilter.Q.value = parseFloat(value);
+    else if (target === highQSlider && highFilter) highFilter.Q.value = parseFloat(value);
     // Filter Type Selectors
-    else if (target === lowFilterType && lowFilter) {
-        lowFilter.type = value as BiquadFilterType;
-        updateQControlState(value, lowQContainer, lowQSlider);
-    } else if (target === midFilterType && midFilter) {
-        midFilter.type = value as BiquadFilterType;
-        updateQControlState(value, midQContainer, midQSlider);
-    } else if (target === highFilterType && highFilter) {
-        highFilter.type = value as BiquadFilterType;
-        updateQControlState(value, highQContainer, highQSlider);
-    }
+    else if (target === lowFilterType && lowFilter) { lowFilter.type = value as BiquadFilterType; updateQControlState(value, lowQContainer, lowQSlider); }
+    else if (target === midFilterType && midFilter) { midFilter.type = value as BiquadFilterType; updateQControlState(value, midQContainer, midQSlider); }
+    else if (target === highFilterType && highFilter) { highFilter.type = value as BiquadFilterType; updateQControlState(value, highQContainer, highQSlider); }
     
+    updateAllEqDisplays();
     updateStaticEqCurve();
 }
 
@@ -683,15 +847,82 @@ function updateAllEqDisplays() {
     lowGainValue.textContent = `${lowGainSlider.value} dB`;
     midGainValue.textContent = `${midGainSlider.value} dB`;
     highGainValue.textContent = `${highGainSlider.value} dB`;
-
     lowFreqValue.textContent = formatFrequency(parseFloat(lowFreqInput.value));
     midFreqValue.textContent = formatFrequency(parseFloat(midFreqInput.value));
     highFreqValue.textContent = formatFrequency(parseFloat(highFreqInput.value));
-
     lowQValue.textContent = parseFloat(lowQSlider.value).toFixed(1);
     midQValue.textContent = parseFloat(midQSlider.value).toFixed(1);
     highQValue.textContent = parseFloat(highQSlider.value).toFixed(1);
 }
+
+function updateAllEqValues() {
+    if (!lowFilter || !midFilter || !highFilter) return;
+    lowFilter.gain.value = parseFloat(lowGainSlider.value);
+    midFilter.gain.value = parseFloat(midGainSlider.value);
+    highFilter.gain.value = parseFloat(highGainSlider.value);
+    lowFilter.frequency.value = parseFloat(lowFreqInput.value);
+    midFilter.frequency.value = parseFloat(midFreqInput.value);
+    highFilter.frequency.value = parseFloat(highFreqInput.value);
+    lowFilter.Q.value = parseFloat(lowQSlider.value);
+    midFilter.Q.value = parseFloat(midQSlider.value);
+    highFilter.Q.value = parseFloat(highQSlider.value);
+    lowFilter.type = lowFilterType.value as BiquadFilterType;
+    midFilter.type = midFilterType.value as BiquadFilterType;
+    highFilter.type = highFilterType.value as BiquadFilterType;
+    updateAllEqDisplays();
+}
+
+function updateAllCompressorDisplays() {
+    lowMidCrossoverValue.textContent = formatFrequency(parseFloat(lowMidCrossover.value));
+    midHighCrossoverValue.textContent = formatFrequency(parseFloat(midHighCrossover.value));
+    
+    lowCompThresholdValue.textContent = `${lowCompThreshold.value} dB`;
+    lowCompRatioValue.textContent = `${parseFloat(lowCompRatio.value).toFixed(1)}:1`;
+    lowCompAttackValue.textContent = `${(parseFloat(lowCompAttack.value) * 1000).toFixed(0)} ms`;
+    lowCompReleaseValue.textContent = `${(parseFloat(lowCompRelease.value) * 1000).toFixed(0)} ms`;
+    lowCompMakeupValue.textContent = `${lowCompMakeup.value} dB`;
+
+    midCompThresholdValue.textContent = `${midCompThreshold.value} dB`;
+    midCompRatioValue.textContent = `${parseFloat(midCompRatio.value).toFixed(1)}:1`;
+    midCompAttackValue.textContent = `${(parseFloat(midCompAttack.value) * 1000).toFixed(0)} ms`;
+    midCompReleaseValue.textContent = `${(parseFloat(midCompRelease.value) * 1000).toFixed(0)} ms`;
+    midCompMakeupValue.textContent = `${midCompMakeup.value} dB`;
+    
+    highCompThresholdValue.textContent = `${highCompThreshold.value} dB`;
+    highCompRatioValue.textContent = `${parseFloat(highCompRatio.value).toFixed(1)}:1`;
+    highCompAttackValue.textContent = `${(parseFloat(highCompAttack.value) * 1000).toFixed(0)} ms`;
+    highCompReleaseValue.textContent = `${(parseFloat(highCompRelease.value) * 1000).toFixed(0)} ms`;
+    highCompMakeupValue.textContent = `${highCompMakeup.value} dB`;
+}
+
+function updateAllCompressorValues() {
+    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midSplitFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
+    
+    lowSplitFilter.frequency.value = parseFloat(lowMidCrossover.value);
+    midSplitFilter.frequency.value = parseFloat(lowMidCrossover.value);
+    highSplitFilter.frequency.value = parseFloat(midHighCrossover.value);
+    
+    lowCompressor.threshold.value = parseFloat(lowCompThreshold.value);
+    lowCompressor.ratio.value = parseFloat(lowCompRatio.value);
+    lowCompressor.attack.value = parseFloat(lowCompAttack.value);
+    lowCompressor.release.value = parseFloat(lowCompRelease.value);
+    lowMakeupGain.gain.value = dbToLinear(parseFloat(lowCompMakeup.value));
+    
+    midCompressor.threshold.value = parseFloat(midCompThreshold.value);
+    midCompressor.ratio.value = parseFloat(midCompRatio.value);
+    midCompressor.attack.value = parseFloat(midCompAttack.value);
+    midCompressor.release.value = parseFloat(midCompRelease.value);
+    midMakeupGain.gain.value = dbToLinear(parseFloat(midCompMakeup.value));
+
+    highCompressor.threshold.value = parseFloat(highCompThreshold.value);
+    highCompressor.ratio.value = parseFloat(highCompRatio.value);
+    highCompressor.attack.value = parseFloat(highCompAttack.value);
+    highCompressor.release.value = parseFloat(highCompRelease.value);
+    highMakeupGain.gain.value = dbToLinear(parseFloat(highCompMakeup.value));
+    
+    updateAllCompressorDisplays();
+}
+
 
 function updateAllQControlsState() {
     updateQControlState(lowFilterType.value, lowQContainer, lowQSlider);
@@ -710,24 +941,23 @@ function main() {
   timelineContainer.addEventListener('click', handleTimelineScrub);
   
   // EQ Listeners
-  lowGainSlider.addEventListener('input', handleEqChange);
-  midGainSlider.addEventListener('input', handleEqChange);
-  highGainSlider.addEventListener('input', handleEqChange);
-  lowFreqInput.addEventListener('input', handleEqChange);
-  midFreqInput.addEventListener('input', handleEqChange);
-  highFreqInput.addEventListener('input', handleEqChange);
-  lowQSlider.addEventListener('input', handleEqChange);
-  midQSlider.addEventListener('input', handleEqChange);
-  highQSlider.addEventListener('input', handleEqChange);
-  lowFilterType.addEventListener('input', handleEqChange);
-  midFilterType.addEventListener('input', handleEqChange);
-  highFilterType.addEventListener('input', handleEqChange);
+  const eqControls = [lowGainSlider, midGainSlider, highGainSlider, lowFreqInput, midFreqInput, highFreqInput, lowQSlider, midQSlider, highQSlider, lowFilterType, midFilterType, highFilterType];
+  eqControls.forEach(control => control.addEventListener('input', handleEqChange));
 
+  // Compressor Listeners
+  const compControls = [
+      compressorEnable, lowMidCrossover, midHighCrossover,
+      lowCompThreshold, lowCompRatio, lowCompAttack, lowCompRelease, lowCompMakeup,
+      midCompThreshold, midCompRatio, midCompAttack, midCompRelease, midCompMakeup,
+      highCompThreshold, highCompRatio, highCompAttack, highCompRelease, highCompMakeup
+  ];
+  compControls.forEach(control => control.addEventListener('input', handleCompressorChange));
 
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
   downloadProcessedButton.disabled = true;
   updateAllEqDisplays();
+  updateAllCompressorDisplays();
   updateAllQControlsState();
   setLanguage(currentLang);
   updateSubmitButtonState(audioFiles); // Initial state
