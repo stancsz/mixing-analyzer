@@ -11,8 +11,8 @@ import {
   downloadButton, eqCurveCanvas, fileInput, fileNameSpan, highGainSlider, highGainValue,
   languageSelector, loader, lowGainSlider, lowGainValue, midGainSlider, midGainValue,
   optionAiCheck, optionDynamicsStereo, optionEffects, optionMetadata,
-  optionSpectral, optionTruncate, playPauseButton, progressBar,
-  resultText, spectrogramCanvas, submitButton, timelineContainer, visualizerPanel,
+  optionSpectral, optionTruncate, playPauseButton,
+  resultText, spectrogramCanvas, submitButton, waveformCanvas, visualizerPanel,
   lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue,
   lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadProcessedButton,
   compressorEnable, lowMidCrossover, midHighCrossover, lowMidCrossoverValue, midHighCrossoverValue,
@@ -27,7 +27,7 @@ import { ai, responseSchema, systemInstruction } from './gemini';
 import { translations } from './i18n';
 import { renderAnalysis, updateSubmitButtonState } from './ui';
 import { fileToBase64, getAudioDuration, getMimeType, truncateAudio, encodeWav } from './utils';
-import { drawEqCurve, drawSpectrogram } from './visualizer';
+import { drawEqCurve, drawSpectrogram, drawWaveform } from './visualizer';
 
 // --- App State ---
 let audioFiles: File[] = [];
@@ -36,6 +36,7 @@ let currentLang = 'en';
 // --- Visualizer State ---
 let audioContext: AudioContext | null = null;
 let audioBuffer: AudioBuffer | null = null;
+let waveformData: Float32Array | null = null;
 let sourceNode: AudioBufferSourceNode | null = null;
 let analyserNodeSpectrogram: AnalyserNode | null = null;
 let analyserNodeEq: AnalyserNode | null = null;
@@ -76,6 +77,31 @@ function dbToLinear(db: number): number {
 }
 
 // --- Visualizer Functions ---
+
+/**
+ * Generates peak data for drawing a waveform.
+ * @param buffer The audio buffer to process.
+ * @param targetWidth The desired width of the waveform data array.
+ * @returns A Float32Array containing peak values.
+ */
+function generateWaveformData(buffer: AudioBuffer, targetWidth: number): Float32Array {
+    const rawData = buffer.getChannelData(0); // Use left channel
+    const samplesPerPixel = Math.floor(rawData.length / targetWidth);
+    const waveform = new Float32Array(targetWidth);
+    for (let i = 0; i < targetWidth; i++) {
+        const blockStart = samplesPerPixel * i;
+        let max = 0.0;
+        for (let j = 0; j < samplesPerPixel; j++) {
+            const amp = Math.abs(rawData[blockStart + j] || 0);
+            if (amp > max) {
+                max = amp;
+            }
+        }
+        waveform[i] = max;
+    }
+    return waveform;
+}
+
 
 function cleanupVisualizer() {
   if (scrubTimeoutId) {
@@ -120,10 +146,14 @@ function cleanupVisualizer() {
     animationFrameId = null;
   }
   audioBuffer = null;
+  waveformData = null;
   isPlaying = false;
   startOffset = 0;
   startTime = 0;
-  progressBar.style.width = '0%';
+
+  const waveformCtx = waveformCanvas.getContext('2d');
+  waveformCtx?.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+  
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
   downloadProcessedButton.disabled = true;
@@ -185,6 +215,10 @@ async function setupAudio(file: File) {
   const eqRect = eqCurveCanvas.getBoundingClientRect();
   eqCurveCanvas.width = eqRect.width;
   eqCurveCanvas.height = eqRect.height;
+  
+  const waveRect = waveformCanvas.getBoundingClientRect();
+  waveformCanvas.width = waveRect.width;
+  waveformCanvas.height = waveRect.height;
 
   const specRect = spectrogramCanvas.getBoundingClientRect();
   spectrogramCanvas.width = specRect.width;
@@ -254,6 +288,13 @@ async function setupAudio(file: File) {
   const arrayBuffer = await file.arrayBuffer();
   audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
+  // Generate and draw waveform
+  waveformData = generateWaveformData(audioBuffer, waveformCanvas.width);
+  const waveformCtx = waveformCanvas.getContext('2d');
+  if (waveformCtx) {
+      drawWaveform(waveformCtx, waveformData, 0, waveformCanvas.width, waveformCanvas.height);
+  }
+
   updateStaticEqCurve(); // Initial draw
   playPauseButton.disabled = false;
   downloadProcessedButton.disabled = false;
@@ -264,6 +305,7 @@ function renderVisualizations() {
 
   const spectrogramCtx = spectrogramCanvas.getContext('2d');
   const eqCtx = eqCurveCanvas.getContext('2d');
+  const waveformCtx = waveformCanvas.getContext('2d');
 
   if (spectrogramCtx) {
     drawSpectrogram(analyserNodeSpectrogram, spectrogramCtx, spectrogramCanvas.width, spectrogramCanvas.height);
@@ -285,8 +327,11 @@ function renderVisualizations() {
   }
 
   const elapsedTime = audioContext.currentTime - startTime + startOffset;
-  const progress = (elapsedTime / audioBuffer.duration) * 100;
-  progressBar.style.width = `${Math.min(progress, 100)}%`;
+  const progress = (elapsedTime / audioBuffer.duration);
+
+  if (waveformCtx && waveformData) {
+      drawWaveform(waveformCtx, waveformData, Math.min(progress, 1), waveformCanvas.width, waveformCanvas.height);
+  }
 
   if (isPlaying) {
     animationFrameId = requestAnimationFrame(renderVisualizations);
@@ -322,7 +367,10 @@ function playAudio() {
       
       // Update UI
       playPauseButton.innerHTML = playIcon;
-      progressBar.style.width = '0%';
+      const waveformCtx = waveformCanvas.getContext('2d');
+      if (waveformCtx && waveformData) {
+        drawWaveform(waveformCtx, waveformData, 0, waveformCanvas.width, waveformCanvas.height);
+      }
       
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -378,7 +426,7 @@ function handleTimelineScrub(event: MouseEvent) {
         clearTimeout(scrubTimeoutId);
     }
     
-    const timeline = timelineContainer;
+    const timeline = waveformCanvas;
     const rect = timeline.getBoundingClientRect();
     const offsetX = event.clientX - rect.left;
     const clickRatio = Math.max(0, Math.min(1, offsetX / timeline.clientWidth));
@@ -397,12 +445,17 @@ function handleTimelineScrub(event: MouseEvent) {
     // Update state to reflect the pause and the new time.
     isPlaying = false;
     startOffset = newTime;
-    progressBar.style.width = `${clickRatio * 100}%`;
     playPauseButton.innerHTML = playIcon;
 
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
+    }
+
+    // Immediately draw the waveform at the new scrubbed position
+    const waveformCtx = waveformCanvas.getContext('2d');
+    if (waveformCtx && waveformData) {
+        drawWaveform(waveformCtx, waveformData, clickRatio, waveformCanvas.width, waveformCanvas.height);
     }
     updateStaticEqCurve(); // Show the static EQ curve while paused.
 
@@ -977,7 +1030,7 @@ function main() {
   downloadProcessedButton.addEventListener('click', handleDownloadProcessedAudio);
   languageSelector.addEventListener('change', (e) => setLanguage((e.target as HTMLSelectElement).value));
   playPauseButton.addEventListener('click', handlePlayPause);
-  timelineContainer.addEventListener('click', handleTimelineScrub);
+  waveformCanvas.addEventListener('click', handleTimelineScrub);
   
   // EQ Listeners
   const eqControls = [lowGainSlider, midGainSlider, highGainSlider, lowFreqInput, midFreqInput, highFreqInput, lowQSlider, midQSlider, highQSlider, lowFilterType, midFilterType, highFilterType];

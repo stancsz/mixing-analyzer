@@ -56,6 +56,74 @@ export function drawSpectrogram(
     }
 }
 
+
+/**
+ * Draws the audio waveform on a canvas with a playhead.
+ * @param ctx The 2D rendering context of the canvas.
+ * @param waveformData An array of peak amplitude values.
+ * @param progress The current playback progress (0.0 to 1.0).
+ * @param width The width of the canvas.
+ * @param height The height of the canvas.
+ */
+export function drawWaveform(
+    ctx: CanvasRenderingContext2D,
+    waveformData: Float32Array,
+    progress: number,
+    width: number,
+    height: number
+) {
+    const styles = getComputedStyle(document.documentElement);
+    const playedColor = styles.getPropertyValue('--primary-color').trim();
+    const unplayedColor = styles.getPropertyValue('--secondary-color').trim();
+    const playheadColor = styles.getPropertyValue('--on-surface-color').trim();
+    const backgroundColor = styles.getPropertyValue('--background-color').trim();
+
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, width, height);
+
+    const centerY = height / 2;
+    const splitPoint = Math.floor(width * progress);
+
+    // Function to draw one half of the waveform (top or bottom)
+    const drawHalf = (color: string, start: number, end: number) => {
+        ctx.beginPath();
+        ctx.moveTo(start, centerY);
+        for (let x = start; x < end; x++) {
+            const amp = (waveformData[x] || 0) * centerY;
+            ctx.lineTo(x, centerY - amp);
+        }
+        // Draw bottom half mirrored
+        for (let x = end - 1; x >= start; x--) {
+            const amp = (waveformData[x] || 0) * centerY;
+            ctx.lineTo(x, centerY + amp);
+        }
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    };
+
+    // Draw played part
+    if (splitPoint > 0) {
+        drawHalf(playedColor, 0, splitPoint);
+    }
+
+    // Draw unplayed part
+    if (splitPoint < width) {
+        drawHalf(unplayedColor, splitPoint, width);
+    }
+
+    // Draw playhead
+    if (progress > 0 && progress < 1) {
+        ctx.strokeStyle = playheadColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(splitPoint, 0);
+        ctx.lineTo(splitPoint, height);
+        ctx.stroke();
+    }
+}
+
+
 /**
  * Draws the frequency response curve of the EQ filters and an optional real-time spectrum.
  * @param filters An array of BiquadFilterNodes.
