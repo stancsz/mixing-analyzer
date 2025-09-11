@@ -14,7 +14,7 @@ import {
   optionSpectral, optionTruncate, playPauseButton,
   resultText, spectrogramCanvas, submitButton, waveformCanvas, visualizerPanel,
   lowFreqInput, midFreqInput, highFreqInput, midQSlider, midQValue, lowFreqValue, midFreqValue, highFreqValue, lowQSlider, highQSlider, lowQValue, highQValue,
-  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadProcessedButton,
+  lowFilterType, midFilterType, highFilterType, lowQContainer, midQContainer, highQContainer, downloadMasterButton,
   compressorEnable, lowMidCrossover, midHighCrossover, lowMidCrossoverValue, midHighCrossoverValue,
   lowGrMeter, midGrMeter, highGrMeter, lowCompThreshold, lowCompRatio, lowCompAttack, lowCompRelease, lowCompMakeup,
   lowCompThresholdValue, lowCompRatioValue, lowCompAttackValue, lowCompReleaseValue, lowCompMakeupValue,
@@ -53,9 +53,10 @@ let eqFilters: BiquadFilterNode[] = [];
 let compressorWetGain: GainNode | null = null;
 let compressorDryGain: GainNode | null = null;
 let compressorOutputNode: GainNode | null = null;
-let lowSplitFilter: BiquadFilterNode | null = null;
-let midSplitFilter: BiquadFilterNode | null = null;
-let highSplitFilter: BiquadFilterNode | null = null;
+let lowSplitFilter: BiquadFilterNode | null = null; // The low-pass at low/mid crossover
+let midHighSplitFilter: BiquadFilterNode | null = null; // The high-pass at low/mid crossover
+let midBandFilter: BiquadFilterNode | null = null; // The low-pass for the mid-band
+let highSplitFilter: BiquadFilterNode | null = null; // The high-pass for the high-band
 let lowCompressor: DynamicsCompressorNode | null = null;
 let midCompressor: DynamicsCompressorNode | null = null;
 let highCompressor: DynamicsCompressorNode | null = null;
@@ -134,12 +135,12 @@ function cleanupVisualizer() {
   // Disconnect all EQ and Compressor nodes
   [
     lowFilter, midFilter, highFilter, compressorWetGain, compressorDryGain, compressorOutputNode,
-    lowSplitFilter, midSplitFilter, highSplitFilter, lowCompressor, midCompressor,
+    lowSplitFilter, midHighSplitFilter, midBandFilter, highSplitFilter, lowCompressor, midCompressor,
     highCompressor, lowMakeupGain, midMakeupGain, highMakeupGain
   ].forEach(node => node?.disconnect());
 
   lowFilter = midFilter = highFilter = null;
-  compressorWetGain = compressorDryGain = compressorOutputNode = lowSplitFilter = midSplitFilter = highSplitFilter = null;
+  compressorWetGain = compressorDryGain = compressorOutputNode = lowSplitFilter = midHighSplitFilter = midBandFilter = highSplitFilter = null;
   lowCompressor = midCompressor = highCompressor = null;
   lowMakeupGain = midMakeupGain = highMakeupGain = null;
   eqFilters = [];
@@ -164,7 +165,7 @@ function cleanupVisualizer() {
   
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
-  downloadProcessedButton.disabled = true;
+  downloadMasterButton.disabled = true;
 }
 
 function updateStaticEqCurve() {
@@ -175,27 +176,40 @@ function updateStaticEqCurve() {
   }
 }
 
+/**
+ * Creates and connects the nodes for a 3-band multiband compressor.
+ * @param context The AudioContext or OfflineAudioContext.
+ * @returns An object containing all the created audio nodes.
+ */
 function createCompressorChain(context: AudioContext | OfflineAudioContext) {
-    // Crossover filters
     const lowMidFreq = parseFloat(lowMidCrossover.value);
     const midHighFreq = parseFloat(midHighCrossover.value);
 
+    // Crossover filters
     const newLowSplitFilter = context.createBiquadFilter();
     newLowSplitFilter.type = 'lowpass';
     newLowSplitFilter.frequency.value = lowMidFreq;
 
-    const newMidSplitFilter = context.createBiquadFilter();
-    newMidSplitFilter.type = 'highpass';
-    newMidSplitFilter.frequency.value = lowMidFreq;
+    const newMidHighSplitFilter = context.createBiquadFilter();
+    newMidHighSplitFilter.type = 'highpass';
+    newMidHighSplitFilter.frequency.value = lowMidFreq;
 
     const newHighSplitFilter = context.createBiquadFilter();
     newHighSplitFilter.type = 'highpass';
     newHighSplitFilter.frequency.value = midHighFreq;
+    
+    const newMidBandFilter = context.createBiquadFilter();
+    newMidBandFilter.type = 'lowpass';
+    newMidBandFilter.frequency.value = midHighFreq;
 
-    // Compressors
+    // Compressors with a more assertive knee setting
+    const kneeValue = 12;
     const newLowCompressor = context.createDynamicsCompressor();
+    newLowCompressor.knee.value = kneeValue;
     const newMidCompressor = context.createDynamicsCompressor();
+    newMidCompressor.knee.value = kneeValue;
     const newHighCompressor = context.createDynamicsCompressor();
+    newHighCompressor.knee.value = kneeValue;
     
     // Makeup Gain
     const newLowMakeupGain = context.createGain();
@@ -203,12 +217,18 @@ function createCompressorChain(context: AudioContext | OfflineAudioContext) {
     const newHighMakeupGain = context.createGain();
 
     // Connect the bands
+    // Path 1: Low band
     newLowSplitFilter.connect(newLowCompressor).connect(newLowMakeupGain);
-    newMidSplitFilter.connect(newHighSplitFilter).connect(newMidCompressor).connect(newMidMakeupGain);
-    newHighSplitFilter.connect(newHighCompressor).connect(newHighMakeupGain);
+    
+    // Path 2: The signal above the low crossover is split into mid and high
+    newMidHighSplitFilter.connect(newMidBandFilter).connect(newMidCompressor).connect(newMidMakeupGain);
+    newMidHighSplitFilter.connect(newHighSplitFilter).connect(newHighCompressor).connect(newHighMakeupGain);
 
     return {
-        lowSplitFilter: newLowSplitFilter, midSplitFilter: newMidSplitFilter, highSplitFilter: newHighSplitFilter,
+        lowSplitFilter: newLowSplitFilter,
+        midHighSplitFilter: newMidHighSplitFilter,
+        midBandFilter: newMidBandFilter,
+        highSplitFilter: newHighSplitFilter,
         lowCompressor: newLowCompressor, midCompressor: newMidCompressor, highCompressor: newHighCompressor,
         lowMakeupGain: newLowMakeupGain, midMakeupGain: newMidMakeupGain, highMakeupGain: newHighMakeupGain
     };
@@ -245,7 +265,8 @@ async function setupAudio(file: File) {
   // --- Create Compressor Chain ---
   const compNodes = createCompressorChain(audioContext);
   lowSplitFilter = compNodes.lowSplitFilter;
-  midSplitFilter = compNodes.midSplitFilter;
+  midHighSplitFilter = compNodes.midHighSplitFilter;
+  midBandFilter = compNodes.midBandFilter;
   highSplitFilter = compNodes.highSplitFilter;
   lowCompressor = compNodes.lowCompressor;
   midCompressor = compNodes.midCompressor;
@@ -260,7 +281,7 @@ async function setupAudio(file: File) {
   
   // Connect wet compressor chain inputs
   compressorWetGain.connect(lowSplitFilter);
-  compressorWetGain.connect(midSplitFilter);
+  compressorWetGain.connect(midHighSplitFilter);
   
   // Connect compressor chain outputs to the summing bus
   lowMakeupGain.connect(compressorOutputNode);
@@ -305,7 +326,7 @@ async function setupAudio(file: File) {
 
   updateStaticEqCurve(); // Initial draw
   playPauseButton.disabled = false;
-  downloadProcessedButton.disabled = false;
+  downloadMasterButton.disabled = false;
 }
 
 function renderVisualizations() {
@@ -478,9 +499,9 @@ async function handleDownloadProcessedAudio() {
     if (!audioBuffer || !audioFiles.length) return;
     
     const t = translations[currentLang];
-    const originalText = downloadProcessedButton.textContent;
-    downloadProcessedButton.textContent = t.processingMessage || 'Processing...';
-    downloadProcessedButton.disabled = true;
+    const originalText = downloadMasterButton.textContent;
+    downloadMasterButton.textContent = t.generatingMasterMessage || 'Generating Master...';
+    downloadMasterButton.disabled = true;
 
     try {
         const offlineCtx = new OfflineAudioContext(
@@ -527,7 +548,7 @@ async function handleDownloadProcessedAudio() {
 
             // Connect source to compressor inputs, and compressor output to EQ input
             source.connect(compNodes.lowSplitFilter);
-            source.connect(compNodes.midSplitFilter);
+            source.connect(compNodes.midHighSplitFilter);
             offlineCompOutput.connect(offlineLowFilter);
 
             // --- Apply all Compressor settings ---
@@ -571,9 +592,9 @@ async function handleDownloadProcessedAudio() {
         console.error("Failed to process audio for download:", error);
         alert("Sorry, there was an error processing the audio.");
     } finally {
-        downloadProcessedButton.textContent = originalText;
+        downloadMasterButton.textContent = originalText;
         if (audioBuffer) {
-            downloadProcessedButton.disabled = false;
+            downloadMasterButton.disabled = false;
         }
     }
 }
@@ -611,7 +632,7 @@ function updateCompressorBypass() {
 }
 
 function handleCompressorChange(event: Event) {
-    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midSplitFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
+    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midHighSplitFilter || !midBandFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
     
     const target = event.target as HTMLInputElement;
     const value = parseFloat(target.value);
@@ -623,14 +644,11 @@ function handleCompressorChange(event: Event) {
     // Crossovers
     else if (target === lowMidCrossover) {
         lowSplitFilter.frequency.value = value;
-        midSplitFilter.frequency.value = value;
+        midHighSplitFilter.frequency.value = value;
         lowMidCrossoverValue.textContent = formatFrequency(value);
     } else if (target === midHighCrossover) {
         highSplitFilter.frequency.value = value;
-        // mid band's lowpass is determined by this
-        // This simplified model has mid being highpass(low) -> rest. highpass(high) is the high band.
-        // A more correct crossover is needed for a sharp mid band.
-        // The current wiring is: mid = highpass(low) AND NOT highpass(high). Which is done by `midSplit.connect(highSplit)`.
+        midBandFilter.frequency.value = value;
         midHighCrossoverValue.textContent = formatFrequency(value);
     }
     // Low Band
@@ -1038,11 +1056,12 @@ function updateAllCompressorDisplays() {
 }
 
 function updateAllCompressorValues() {
-    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midSplitFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
+    if (!lowCompressor || !midCompressor || !highCompressor || !lowSplitFilter || !midHighSplitFilter || !midBandFilter || !highSplitFilter || !lowMakeupGain || !midMakeupGain || !highMakeupGain) return;
     
     lowSplitFilter.frequency.value = parseFloat(lowMidCrossover.value);
-    midSplitFilter.frequency.value = parseFloat(lowMidCrossover.value);
+    midHighSplitFilter.frequency.value = parseFloat(lowMidCrossover.value);
     highSplitFilter.frequency.value = parseFloat(midHighCrossover.value);
+    midBandFilter.frequency.value = parseFloat(midHighCrossover.value);
     
     lowCompressor.threshold.value = parseFloat(lowCompThreshold.value);
     lowCompressor.ratio.value = parseFloat(lowCompRatio.value);
@@ -1077,7 +1096,7 @@ function main() {
   fileInput.addEventListener('change', handleFileChange);
   submitButton.addEventListener('click', handleSubmit);
   downloadButton.addEventListener('click', handleDownload);
-  downloadProcessedButton.addEventListener('click', handleDownloadProcessedAudio);
+  downloadMasterButton.addEventListener('click', handleDownloadProcessedAudio);
   languageSelector.addEventListener('change', (e) => setLanguage((e.target as HTMLSelectElement).value));
   playPauseButton.addEventListener('click', handlePlayPause);
   waveformCanvas.addEventListener('click', handleTimelineScrub);
@@ -1100,7 +1119,7 @@ function main() {
 
   playPauseButton.innerHTML = playIcon;
   playPauseButton.disabled = true;
-  downloadProcessedButton.disabled = true;
+  downloadMasterButton.disabled = true;
   updateAllEqDisplays();
   updateAllCompressorDisplays();
   updateAllQControlsState();

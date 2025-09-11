@@ -13,7 +13,7 @@ import { resultText, submitButton } from './ui-elements';
  * Updates the state of the submit button based on whether files are selected.
  */
 export function updateSubmitButtonState(audioFiles: File[]) {
-  submitButton.disabled = audioFiles.length === 0;
+  submitButton.disabled = true;
 }
 
 /**

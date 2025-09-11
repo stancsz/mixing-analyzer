@@ -24,7 +24,8 @@ export const playPauseButton = document.getElementById('play-pause-button') as H
 export const waveformCanvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
 export const spectrogramCanvas = document.getElementById('spectrogram-canvas') as HTMLCanvasElement;
 export const eqCurveCanvas = document.getElementById('eq-curve-canvas') as HTMLCanvasElement;
-export const downloadProcessedButton = document.getElementById('download-processed-button') as HTMLButtonElement;
+export const vibeMasterButton = document.getElementById('vibe-master-button') as HTMLButtonElement;
+export const downloadMasterButton = document.getElementById('download-master-button') as HTMLButtonElement;
 
 // EQ Controls
 export const eqResetButton = document.getElementById('eq-reset-button') as HTMLButtonElement;
